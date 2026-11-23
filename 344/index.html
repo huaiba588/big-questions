@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f4e79">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="344 风景园林基础 大题">
+  <meta name="description" content="344 风景园林基础 简答/论述训练：先列提纲，再看骨架，限时写。">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-180.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>344 风景园林基础 大题 · 骨架训练</title>
+</head>
+<body data-subject="344">
+  <div id="app">
+    <header class="topbar" id="topbar">
+      <div class="topbar-inner">
+        <button class="back-btn hidden" id="backBtn" aria-label="返回">‹</button>
+        <div class="brand">
+          <span class="brand-mark">344</span>
+          <div>
+            <div class="brand-text">大题骨架</div>
+            <div class="brand-sub">344 风景园林基础 · 简答/论述</div>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span class="streak-pill" id="streakPill">🔥 0 天</span>
+          <button class="icon-btn" id="themeBtn" aria-label="切换深浅色">☾</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="screen active" id="screen-home">
+        <div class="hero">
+          <div class="hero-kicker">今天，练一道大题。</div>
+          <h1>先列提纲，<br>再看骨架。</h1>
+          <p class="hero-sub" id="todayLabel">344 风景园林基础 · 简答 / 论述</p>
+        </div>
+
+        <div class="today-card">
+          <div class="today-ring" id="todayRing" style="--p:0%">
+            <div class="ring-inner"><strong id="todayDone">0</strong><span>/ <em id="todayTarget">3</em></span></div>
+          </div>
+          <div class="today-info">
+            <div class="today-row"><span>待复习</span><b id="dueCount">0</b></div>
+            <div class="today-row"><span>今日新题</span><b id="newCount">0</b></div>
+            <div class="today-row"><span>已掌握</span><b id="masteredCount">0</b></div>
+          </div>
+        </div>
+
+        <button class="primary-btn wide" id="startBtn">开始今日训练 →</button>
+        <div class="quick-row">
+          <button class="quick-btn" id="quickS">简答专项</button>
+          <button class="quick-btn" id="quickL">论述专项</button>
+        </div>
+        <div class="hero-note">先自己写 3—5 个词，再点“显示骨架”</div>
+
+        <div class="section-head"><h2>训练概览</h2><button class="text-btn" data-goto="stats">统计</button></div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-num" id="statDone">0</div><div class="stat-label">已练</div></div>
+          <div class="stat-card"><div class="stat-num" id="statStreak">0</div><div class="stat-label">连续天数</div></div>
+          <div class="stat-card"><div class="stat-num" id="statMastered">0</div><div class="stat-label">已掌握</div></div>
+        </div>
+
+        <div class="section-head"><h2>专题进度</h2><span class="muted" id="totalLabel">0 / 0</span></div>
+        <div class="topic-list" id="topicList"></div>
+      </section>
+
+      <section class="screen" id="screen-train">
+        <div class="train-top">
+          <div class="train-meta">
+            <span id="trainProgressText">0 / 0</span>
+            <span class="dot">·</span>
+            <span id="trainMode">今日训练</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="trainProgressBar"></div></div>
+        </div>
+
+        <div id="trainArea">
+          <div class="question-card">
+            <div class="q-meta">
+              <span class="chip" id="trainType">简答</span>
+              <span class="chip gold" id="trainSource">2025</span>
+              <span class="muted" id="trainScore">10 分</span>
+            </div>
+            <h1 class="q-title" id="trainTitle">题目</h1>
+
+            <div class="timer-row">
+              <div><span class="timer" id="timer">00:00</span> <span class="timer-target" id="timerTarget">建议 10 分钟</span></div>
+              <button class="timer-btn" id="timerBtn">开始计时</button>
+            </div>
+
+            <textarea class="outline" id="outline" placeholder="先写提纲：分几点？每点关键词？案例/机制？"></textarea>
+            <button class="reveal-btn" id="revealBtn">显示骨架</button>
+
+            <div class="skeleton hidden" id="skeleton">
+              <div class="sk-block"><div class="sk-label">破题</div><div class="sk-text" id="sBreak"></div></div>
+              <div class="sk-block"><div class="sk-label">骨架</div><ol class="sk-points" id="sPoints"></ol></div>
+              <div class="sk-block"><div class="sk-label">关键词</div><div class="sk-text" id="sKeys"></div></div>
+              <div class="sk-block"><div class="sk-label">案例/机制</div><div class="sk-text" id="sCase"></div></div>
+              <div class="sk-block sk-pit"><div class="sk-label">易漏点</div><div class="sk-text" id="sPit"></div></div>
+            </div>
+
+            <div class="ratings hidden" id="ratings">
+              <button class="rate" data-level="0"><b>没思路</b><span>明天再来</span></button>
+              <button class="rate" data-level="1"><b>有框架</b><span>2 天后</span></button>
+              <button class="rate" data-level="2"><b>能展开</b><span>4 天后</span></button>
+              <button class="rate" data-level="3"><b>能写完</b><span>7 天后</span></button>
+            </div>
+
+            <div class="card-foot">
+              <button class="foot-btn" id="prevBtn">‹ 上一题</button>
+              <button class="foot-btn" id="skipBtn">跳过 ›</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-state hidden" id="trainEmpty">
+          <div class="empty-icon">✓</div>
+          <h2>这一组练完了</h2>
+          <p id="emptyText">今天的题已经清空。</p>
+          <button class="primary-btn" data-goto="home">回首页</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-library">
+        <div class="library-head"><h1>题库</h1><span class="muted" id="libraryCount">0 题</span></div>
+        <div class="search-wrap"><span class="search-icon">⌕</span><input id="searchInput" placeholder="搜题目 / 关键词"></div>
+        <div class="chips" id="filterChips">
+          <button class="filter-chip active" data-filter="all">全部</button>
+          <button class="filter-chip" data-filter="简答">简答</button>
+          <button class="filter-chip" data-filter="论述">论述</button>
+          <button class="filter-chip" data-filter="new">未练</button>
+          <button class="filter-chip" data-filter="mastered">已掌握</button>
+        </div>
+        <div class="q-list" id="questionList"></div>
+      </section>
+
+      <section class="screen" id="screen-stats">
+        <div class="library-head"><h1>训练统计</h1><button class="text-btn" data-goto="settings">设置</button></div>
+        <div class="stat-hero">
+          <div><div class="stat-hero-num" id="statDone2">0</div><div class="stat-hero-label">已练题数</div></div>
+          <div><div class="stat-hero-num" id="statMastered2">0</div><div class="stat-hero-label">已掌握</div></div>
+          <div><div class="stat-hero-num" id="statDays2">0</div><div class="stat-hero-label">训练天数</div></div>
+        </div>
+        <div class="panel"><div class="panel-head"><h2>题型完成</h2><span class="muted">已练 / 总数</span></div><div class="bar-list" id="typeBars"></div></div>
+        <div class="panel"><div class="panel-head"><h2>熟练度分布</h2><span class="muted">四档</span></div><div class="bar-list" id="levelBars"></div></div>
+        <div class="panel"><div class="panel-head"><h2>最近 7 天</h2><span class="muted" id="weekTotal">0 次</span></div><div class="week-chart" id="weekChart"></div></div>
+        <div class="panel"><div class="panel-head"><h2>专题进度</h2><span class="muted">已练 / 总数</span></div><div class="bar-list" id="topicStats"></div></div>
+      </section>
+
+      <section class="screen" id="screen-settings">
+        <div class="library-head"><h1>设置</h1></div>
+        <div class="setting-group">
+          <label class="setting-row"><span><b>每日训练</b><small>一天练几题（含复习）</small></span>
+            <select id="dailySelect"><option value="2">2 题</option><option value="3">3 题</option><option value="5">5 题</option><option value="8">8 题</option></select>
+          </label>
+          <label class="setting-row"><span><b>出题顺序</b><small>随机或按题库顺序</small></span>
+            <select id="orderSelect"><option value="random">随机</option><option value="sequence">顺序</option></select>
+          </label>
+          <label class="setting-row"><span><b>深色模式</b><small>夜间护眼</small></span><input type="checkbox" id="darkToggle" class="switch"></label>
+        </div>
+        <div class="setting-group">
+          <button class="setting-btn" id="exportBtn"><b>导出学习数据</b><span>JSON 备份</span></button>
+          <label class="setting-btn"><b>导入学习数据</b><span>选择 JSON</span><input type="file" id="importFile" accept="application/json" class="hidden"></label>
+          <button class="setting-btn danger" id="resetBtn"><b>清空全部进度</b><span>不可恢复</span></button>
+        </div>
+        <div class="about">
+          <p><b>344 风景园林基础 · 大题骨架训练</b></p>
+          <p>题库：48 题，来自 344/857 简答·论述骨架卡第一批、第二批。</p>
+          <p>不是全文答案；只练“破题—骨架—关键词—案例/机制—易漏点”。</p>
+          <p>进度只保存在本机浏览器，不上传。</p>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="tab active" data-goto="home"><span>⌂</span><b>首页</b></button>
+      <button class="tab" data-goto="train"><span>✎</span><b>训练</b></button>
+      <button class="tab" data-goto="library"><span>≡</span><b>题库</b></button>
+      <button class="tab" data-goto="stats"><span>◔</span><b>统计</b></button>
+      <button class="tab" data-goto="settings"><span>⚙</span><b>设置</b></button>
+    </nav>
+  </div>
+
+  <div class="modal hidden" id="modal">
+    <div class="modal-backdrop" data-close="modal"></div>
+    <div class="modal-card">
+      <div class="modal-top"><span class="chip" id="mType">简答</span><button class="icon-btn" data-close="modal">×</button></div>
+      <h2 id="mTitle">题目</h2>
+      <div id="mBody"></div>
+      <div class="modal-actions"><button class="primary-btn" id="mStart">练这道</button></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
