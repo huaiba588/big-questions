@@ -1,4 +1,4 @@
-const CACHE = 'bigq-344-v1';
+const CACHE = 'bigq-344-v2';
 const ASSETS = [
   './',
   './index.html',

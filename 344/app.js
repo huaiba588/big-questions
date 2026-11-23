@@ -214,6 +214,9 @@
     $('#outline').value = state.drafts[item.id] || '';
     $('#skeleton').classList.add('hidden');
     $('#ratings').classList.add('hidden');
+    $('#fullWrap').classList.add('hidden');
+    $('#fullBtn').classList.add('hidden');
+    $('#fullBtn').textContent = '看答题版';
     $('#revealBtn').classList.remove('hidden');
     $('#revealBtn').textContent = p ? '再看一次骨架' : '显示骨架';
     $('#timerTarget').textContent = item.type === '简答' ? '建议 10 分钟' : '建议 20 分钟';
@@ -240,6 +243,21 @@
     $('#skeleton').classList.remove('hidden');
     $('#ratings').classList.remove('hidden');
     $('#revealBtn').classList.add('hidden');
+    $('#fullBtn').classList.toggle('hidden', !item.full || !item.full.length);
+  }
+
+  function toggleFull() {
+    const item = currentItem();
+    if (!item || !item.full || !item.full.length) return;
+    const wrap = $('#fullWrap');
+    if (!wrap.classList.contains('hidden')) {
+      wrap.classList.add('hidden');
+      $('#fullBtn').textContent = '看答题版';
+      return;
+    }
+    $('#fullBody').innerHTML = item.full.map(s => `<p class="full-point"><b>${escapeHtml(s.h)}：</b>${escapeHtml(s.t)}</p>`).join('');
+    wrap.classList.remove('hidden');
+    $('#fullBtn').textContent = '收起答题版';
   }
 
   function rate(level) {
@@ -464,6 +482,7 @@
     $('#quickS').addEventListener('click', () => startSession('S'));
     $('#quickL').addEventListener('click', () => startSession('L'));
     $('#revealBtn').addEventListener('click', reveal);
+    $('#fullBtn').addEventListener('click', toggleFull);
     $$('.rate').forEach(b => b.addEventListener('click', () => rate(b.dataset.level)));
     $('#prevBtn').addEventListener('click', () => {
       if (index > 0) { index--; renderTrain(); } else toast('已经是第一题');
@@ -545,6 +564,7 @@
     if (p.get('train') === '1') startSession('due');
     if (p.get('type') === 'S' || p.get('type') === 'L') startSession(p.get('type'));
     if (p.get('reveal') === '1') setTimeout(reveal, 30);
+    if (p.get('full') === '1') setTimeout(toggleFull, 80);
     if (p.get('q')) {
       const item = activeData().find(x => x.title === p.get('q'));
       if (item) openModal(item);

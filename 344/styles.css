@@ -132,6 +132,10 @@ main { padding: 4px 16px 24px; }
 .sk-pit { background: #fbefed; border-radius: 10px; padding: 9px 10px; }
 body.dark .sk-pit { background: #35211f; }
 .sk-pit .sk-text { color: var(--danger); }
+.full-btn { width: 100%; margin-top: 10px; background: var(--bg); border: 1px solid var(--accent); color: var(--accent); border-radius: 13px; padding: 11px; font-weight: 700; font-size: 13px; }
+.full-wrap { margin-top: 10px; padding: 12px; background: var(--bg); border-radius: 13px; }
+.full-point { margin: 0 0 7px; font-size: 13px; line-height: 1.7; }
+.full-point b { color: var(--accent); }
 .ratings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
 .rate { border-radius: 12px; padding: 9px 4px; display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--line); background: var(--bg); }
 .rate b { font-size: 11px; }
