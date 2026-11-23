@@ -113,7 +113,9 @@ main { padding: 4px 16px 24px; }
 .progress-fill { height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .2s; }
 .question-card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 18px 16px 14px; box-shadow: var(--shadow); }
 .q-title { font-size: 20px; line-height: 1.4; margin: 14px 0 10px; font-weight: 800; letter-spacing: -.2px; }
-.q-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.q-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.delete-btn { margin-left: auto; font-size: 10px; color: var(--danger); padding: 4px 2px; white-space: nowrap; }
+.ghost-btn { background: var(--bg); border: 1px solid var(--line); color: var(--danger); border-radius: 14px; padding: 12px 14px; font-weight: 700; font-size: 13px; }
 .timer-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 10px; padding: 9px 11px; background: var(--bg); border-radius: 12px; }
 .timer { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 18px; letter-spacing: .5px; }
 .timer-target { font-size: 10px; color: var(--muted); }

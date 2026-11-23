@@ -32,6 +32,7 @@
     progress: {},
     drafts: {},
     days: {},
+    hidden: [],
     settings: { daily: 3, order: 'random', dark: false }
   });
   function load() {
@@ -45,6 +46,7 @@
         progress: p.progress || {},
         drafts: p.drafts || {},
         days: p.days || {},
+        hidden: Array.isArray(p.hidden) ? p.hidden : [],
         settings: { ...base.settings, ...(p.settings || {}) }
       };
     } catch (e) { return defaultState(); }
@@ -68,18 +70,24 @@
     toast._t = setTimeout(() => el.classList.remove('show'), 1800);
   }
   function progressOf(id) { return state.progress[id] || null; }
+  function isHidden(id) { return state.hidden.includes(id); }
+  function activeData() {
+    const hidden = new Set(state.hidden);
+    return DATA.filter(x => !hidden.has(x.id));
+  }
+  function hiddenCount() { return state.hidden.length; }
   function isMastered(id) { return !!progressOf(id)?.mastered; }
   function isPracticed(id) { return !!progressOf(id); }
-  function learnedCount() { return DATA.filter(x => isPracticed(x.id)).length; }
-  function masteredCount() { return DATA.filter(x => isMastered(x.id)).length; }
+  function learnedCount() { return activeData().filter(x => isPracticed(x.id)).length; }
+  function masteredCount() { return activeData().filter(x => isMastered(x.id)).length; }
   function dueList() {
     const t = todayKey();
-    return DATA.filter(x => {
+    return activeData().filter(x => {
       const p = progressOf(x.id);
       return p && p.due && p.due <= t;
     });
   }
-  function newList() { return DATA.filter(x => !isPracticed(x.id)); }
+  function newList() { return activeData().filter(x => !isPracticed(x.id)); }
   function todayDone() { return state.days[todayKey()] || 0; }
   function streak() {
     let n = 0;
@@ -132,13 +140,13 @@
     $('#streakPill').textContent = `🔥 ${streak()} 天`;
     const d = new Date();
     $('#todayLabel').textContent = `${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]} · 简答/论述`;
-    $('#totalLabel').textContent = `${learnedCount()} / ${DATA.length}`;
+    $('#totalLabel').textContent = `${learnedCount()} / ${activeData().length}`;
     renderTopics($('#topicList'));
   }
 
   function topicGroups() {
     const map = new Map();
-    DATA.forEach(x => {
+    activeData().forEach(x => {
       if (!map.has(x.topic)) map.set(x.topic, { total: 0, learned: 0, mastered: 0 });
       const g = map.get(x.topic);
       g.total++;
@@ -171,7 +179,7 @@
     sessionMode = mode === 'S' ? '简答专项' : mode === 'L' ? '论述专项' : mode === 'single' ? '单题训练' : '今日训练';
     if (mode === 'S' || mode === 'L') {
       const type = mode === 'S' ? '简答' : '论述';
-      queue = shuffle(DATA.filter(x => x.type === type && !isMastered(x.id))).slice(0, 10);
+      queue = shuffle(activeData().filter(x => x.type === type && !isMastered(x.id))).slice(0, 10);
     } else if (mode !== 'single') {
       queue = todayQueue();
     }
@@ -293,7 +301,7 @@
 
   function renderLibrary() {
     const q = ($('#searchInput').value || '').trim().toLowerCase();
-    let list = DATA.slice().sort((a, b) => a.id - b.id);
+    let list = activeData().slice().sort((a, b) => a.id - b.id);
     if (filter === '简答' || filter === '论述') list = list.filter(x => x.type === filter);
     if (filter === 'new') list = list.filter(x => !isPracticed(x.id));
     if (filter === 'mastered') list = list.filter(x => isMastered(x.id));
@@ -324,6 +332,44 @@
     currentModal = null;
   }
 
+  function deleteQuestion(id) {
+    const item = DATA.find(x => x.id === id);
+    if (!item) return;
+    if (!confirm(`确定把「${item.title}」移出题库吗？\n删除后可在设置里恢复。`)) return;
+    if (!state.hidden.includes(id)) state.hidden.push(id);
+    save();
+    closeModal();
+    if (queue.some(x => x.id === id)) {
+      const wasCurrent = currentItem()?.id === id;
+      queue = queue.filter(x => x.id !== id);
+      if (!queue.length) finishSession();
+      else if (wasCurrent) {
+        if (index >= queue.length) finishSession();
+        else renderTrain();
+      } else {
+        renderTrain();
+      }
+    } else {
+      renderHome();
+      renderLibrary();
+      renderStats();
+      renderSettings();
+    }
+    toast('已移出题库，可在设置恢复');
+  }
+
+  function restoreHidden() {
+    if (!state.hidden.length) return toast('没有已删除的题目');
+    if (!confirm(`恢复全部 ${state.hidden.length} 道已删除题目？`)) return;
+    state.hidden = [];
+    save();
+    renderHome();
+    renderLibrary();
+    renderStats();
+    renderSettings();
+    toast('已全部恢复');
+  }
+
   function barRow(label, value, total) {
     const pct = total ? Math.round(value / total * 100) : 0;
     return `<div class="bar-row"><span>${label}</span><span class="bar"><i style="width:${pct}%"></i></span><b>${value}/${total}</b></div>`;
@@ -334,13 +380,13 @@
     $('#statDone2').textContent = learned;
     $('#statMastered2').textContent = mastered;
     $('#statDays2').textContent = days;
-    const sTotal = DATA.filter(x => x.type === '简答').length;
-    const lTotal = DATA.filter(x => x.type === '论述').length;
-    const sDone = DATA.filter(x => x.type === '简答' && isPracticed(x.id)).length;
-    const lDone = DATA.filter(x => x.type === '论述' && isPracticed(x.id)).length;
+    const sTotal = activeData().filter(x => x.type === '简答').length;
+    const lTotal = activeData().filter(x => x.type === '论述').length;
+    const sDone = activeData().filter(x => x.type === '简答' && isPracticed(x.id)).length;
+    const lDone = activeData().filter(x => x.type === '论述' && isPracticed(x.id)).length;
     $('#typeBars').innerHTML = barRow('简答', sDone, sTotal) + barRow('论述', lDone, lTotal);
-    const counts = [0,1,2,3].map(l => DATA.filter(x => levelOf(x.id) === l).length);
-    $('#levelBars').innerHTML = counts.map((v,i) => barRow(levelText(i), v, DATA.length)).join('');
+    const counts = [0,1,2,3].map(l => activeData().filter(x => levelOf(x.id) === l).length);
+    $('#levelBars').innerHTML = counts.map((v,i) => barRow(levelText(i), v, activeData().length)).join('');
     renderWeek();
     $('#topicStats').innerHTML = topicGroups().map(([t,g]) => barRow(t, g.learned, g.total)).join('');
   }
@@ -364,6 +410,7 @@
     $('#dailySelect').value = String(state.settings.daily);
     $('#orderSelect').value = state.settings.order;
     $('#darkToggle').checked = !!state.settings.dark;
+    $('#hiddenCount').textContent = `${hiddenCount()} 题`;
   }
 
   function exportData() {
@@ -386,6 +433,7 @@
           progress: obj.progress || {},
           drafts: obj.drafts || {},
           days: obj.days || {},
+          hidden: Array.isArray(obj.hidden) ? obj.hidden : [],
           settings: { ...defaultState().settings, ...(obj.settings || {}) }
         };
         save(); applyTheme(); renderHome(); renderSettings();
@@ -441,7 +489,7 @@
     $('#questionList').addEventListener('click', (e) => {
       const b = e.target.closest('[data-id]');
       if (!b) return;
-      const item = DATA.find(x => x.id === Number(b.dataset.id));
+      const item = activeData().find(x => x.id === Number(b.dataset.id));
       if (item) openModal(item);
     });
     $('#modal').addEventListener('click', (e) => {
@@ -458,6 +506,14 @@
       $('#trainEmpty').classList.add('hidden');
       renderTrain();
     });
+    $('#deleteBtn').addEventListener('click', () => {
+      const item = currentItem();
+      if (item) deleteQuestion(item.id);
+    });
+    $('#mDelete').addEventListener('click', () => {
+      if (currentModal) deleteQuestion(currentModal.id);
+    });
+    $('#restoreBtn').addEventListener('click', restoreHidden);
     $('#dailySelect').addEventListener('change', (e) => { state.settings.daily = Number(e.target.value); save(); renderHome(); });
     $('#orderSelect').addEventListener('change', (e) => { state.settings.order = e.target.value; save(); });
     $('#darkToggle').addEventListener('change', (e) => { state.settings.dark = e.target.checked; save(); applyTheme(); });
@@ -485,11 +541,12 @@
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
     }
     const p = new URLSearchParams(location.search);
+    if (p.get('screen')) showScreen(p.get('screen'));
     if (p.get('train') === '1') startSession('due');
     if (p.get('type') === 'S' || p.get('type') === 'L') startSession(p.get('type'));
     if (p.get('reveal') === '1') setTimeout(reveal, 30);
     if (p.get('q')) {
-      const item = DATA.find(x => x.title === p.get('q'));
+      const item = activeData().find(x => x.title === p.get('q'));
       if (item) openModal(item);
     }
   }
