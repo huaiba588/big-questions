@@ -341,6 +341,9 @@
     $('#mType').textContent = `${item.type} ${item.score}分`;
     $('#mTitle').textContent = item.title;
     $('#mBody').innerHTML = skeletonHtml(item);
+    $('#mFull').classList.add('hidden');
+    $('#mFullBtn').classList.toggle('hidden', !item.full || !item.full.length);
+    $('#mFullBtn').textContent = '看答题版';
     $('#modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   }
@@ -348,6 +351,19 @@
     $('#modal').classList.add('hidden');
     document.body.style.overflow = '';
     currentModal = null;
+  }
+
+  function toggleModalFull() {
+    if (!currentModal || !currentModal.full || !currentModal.full.length) return;
+    const box = $('#mFull');
+    if (!box.classList.contains('hidden')) {
+      box.classList.add('hidden');
+      $('#mFullBtn').textContent = '看答题版';
+      return;
+    }
+    box.innerHTML = currentModal.full.map(s => `<p class="full-point"><b>${escapeHtml(s.h)}：</b>${escapeHtml(s.t)}</p>`).join('');
+    box.classList.remove('hidden');
+    $('#mFullBtn').textContent = '收起答题版';
   }
 
   function deleteQuestion(id) {
@@ -532,6 +548,7 @@
     $('#mDelete').addEventListener('click', () => {
       if (currentModal) deleteQuestion(currentModal.id);
     });
+    $('#mFullBtn').addEventListener('click', toggleModalFull);
     $('#restoreBtn').addEventListener('click', restoreHidden);
     $('#dailySelect').addEventListener('change', (e) => { state.settings.daily = Number(e.target.value); save(); renderHome(); });
     $('#orderSelect').addEventListener('change', (e) => { state.settings.order = e.target.value; save(); });
