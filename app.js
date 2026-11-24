@@ -278,7 +278,7 @@
       const firstGood=p&&(p.firstRating==='记得'||p.firstRating==='熟记');
       const firstBad=p&&(p.firstRating==='陌生'||p.firstRating==='模糊');
       const learn=p?(p.last===todayKey()?'今天已学':'以往学过'):'未学习';
-      return `<button class="term-item" data-lib-id="${x.id}"><span class="status-dot ${dot}"></span><span class="term-left"><span class="term-name ${firstGood?'first-good':firstBad?'first-bad':''}">${escapeHtml(x.term||x.title)}</span><span class="term-sub">${escapeHtml(learn)} · ${escapeHtml(x.category)}${x.type?` · ${x.type} ${x.score}分`:''}</span></span><span style="color:var(--muted)">›</span></button>`;
+      return `<button class="term-item" data-lib-id="${x.id}"><span class="status-dot ${dot}"></span><span class="term-left"><span class="term-name ${firstGood?'first-good':firstBad?'first-bad':''}">${escapeHtml(x.term||x.title)}${state.custom[x.id]?'<span class="custom-tag">已改</span>':''}</span><span class="term-sub">${escapeHtml(learn)} · ${escapeHtml(x.category)}${x.type?` · ${x.type} ${x.score}分`:''}</span></span><span style="color:var(--muted)">›</span></button>`;
     }).join('') || '<div class="empty-list">没有匹配内容。</div>';
   }
 
@@ -287,11 +287,49 @@
     $('#modalChapter').textContent=item.category;
     $('#modalTerm').textContent=item.term||item.title;
     $('#modalAnswer').innerHTML=answerHtml(item);
+    $('#modalAnswer').classList.remove('hidden');
+    $('#modalEditor').classList.add('hidden');
     modalId=id;
     $('#modalStar').textContent=state.favorites.includes(id)?'★ 已收藏':'☆ 收藏';
     $('#modal').classList.remove('hidden'); document.body.style.overflow='hidden';
   }
   function closeModal(){ $('#modal').classList.add('hidden'); document.body.style.overflow=''; modalId=null; }
+
+  function editModalAnswer(){
+    const item=modalId?byId(subject,module,modalId):null;
+    if(!item) return;
+    $('#modalEditInput').value=state.custom[item.id]||plainAnswer(item);
+    $('#modalAnswer').classList.add('hidden');
+    $('#modalEditor').classList.remove('hidden');
+    $('#modalEditInput').focus();
+  }
+
+  function saveModalAnswer(){
+    const item=modalId?byId(subject,module,modalId):null;
+    if(!item) return;
+    const text=($('#modalEditInput').value||'').trim();
+    if(!text) return toast('答案不能为空');
+    state.custom[item.id]=text;
+    save();
+    $('#modalAnswer').innerHTML=answerHtml(item);
+    $('#modalAnswer').classList.remove('hidden');
+    $('#modalEditor').classList.add('hidden');
+    renderLibrary();
+    toast('答案已保存');
+  }
+
+  function restoreModalAnswer(){
+    const item=modalId?byId(subject,module,modalId):null;
+    if(!item) return;
+    delete state.custom[item.id];
+    save();
+    $('#modalEditInput').value=plainAnswer(item);
+    $('#modalAnswer').innerHTML=answerHtml(item);
+    $('#modalAnswer').classList.remove('hidden');
+    $('#modalEditor').classList.add('hidden');
+    renderLibrary();
+    toast('已恢复原答案');
+  }
 
   function beginEdit(el,id){ editId=id; el.contentEditable='true'; el.classList.add('editing'); el.focus(); toast('直接修改，点空白处保存'); }
   function endEdit(el){ if(el.contentEditable!=='true') return; const text=el.textContent.trim(); if(editId&&text){ state.custom[editId]=text; save(); toast('答案已更新'); } el.contentEditable='false'; el.classList.remove('editing'); editId=null; }
@@ -348,6 +386,9 @@
     $('#libraryList').addEventListener('click',e=>{ const b=e.target.closest('[data-lib-id]'); if(b) openModal(b.dataset.libId); });
     $('#modal').addEventListener('click',e=>{ if(e.target.closest('[data-close="modal"]')) closeModal(); });
     $('#modalStar').addEventListener('click',()=>{ if(!modalId)return; const i=state.favorites.indexOf(modalId); if(i>=0)state.favorites.splice(i,1); else state.favorites.push(modalId); save(); $('#modalStar').textContent=state.favorites.includes(modalId)?'★ 已收藏':'☆ 收藏'; });
+    $('#modalEditBtn').addEventListener('click',editModalAnswer);
+    $('#modalSaveBtn').addEventListener('click',saveModalAnswer);
+    $('#modalRestoreBtn').addEventListener('click',restoreModalAnswer);
     bindGestures();
   }
 

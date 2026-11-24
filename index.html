@@ -177,7 +177,15 @@
       <div class="modal-card">
         <div class="modal-top"><span class="chapter-chip" id="modalChapter">—</span><button class="icon-btn" data-close="modal">×</button></div>
         <h2 id="modalTerm">—</h2>
+        <div class="modal-answer-head"><span>参考答案</span><button class="text-btn" id="modalEditBtn">编辑答案</button></div>
         <div class="modal-answer" id="modalAnswer"></div>
+        <div class="modal-editor hidden" id="modalEditor">
+          <textarea id="modalEditInput" rows="8" placeholder="直接修改答案，保存后生效"></textarea>
+          <div class="modal-edit-actions">
+            <button class="secondary-btn" id="modalRestoreBtn">恢复原答案</button>
+            <button class="primary-btn" id="modalSaveBtn">保存修改</button>
+          </div>
+        </div>
         <div class="modal-actions"><button class="secondary-btn" id="modalStar">☆ 收藏</button></div>
       </div>
     </div>
