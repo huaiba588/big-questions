@@ -130,11 +130,24 @@
           <button class="chip" data-cat="重点">重点</button>
           <button class="chip" data-cat="了解">了解</button>
         </div>
+        <div class="chips" id="learnChips">
+          <button class="chip active" data-learn="all">全部进度</button>
+          <button class="chip" data-learn="today">今天已学</button>
+          <button class="chip" data-learn="past">以往学过</button>
+          <button class="chip" data-learn="new">未学习</button>
+        </div>
         <div class="term-list" id="libraryList"></div>
       </section>
 
       <section class="screen" id="screen-settings">
         <div class="page-head"><div><div class="hero-kicker">设置</div><h1>数据与显示</h1></div></div>
+        <div class="settings-card">
+          <label class="settings-row"><span>名词解释 / 天</span><input id="setDailyTerm" class="num-input" type="number" min="0" max="80" inputmode="numeric"></label>
+          <label class="settings-row"><span>简答题 / 天</span><input id="setDailyBrief" class="num-input" type="number" min="0" max="30" inputmode="numeric"></label>
+          <label class="settings-row"><span>论述题 / 天</span><input id="setDailyEssay" class="num-input" type="number" min="0" max="20" inputmode="numeric"></label>
+          <label class="settings-row"><span>综合题 / 天</span><input id="setDailyComp" class="num-input" type="number" min="0" max="10" inputmode="numeric"></label>
+        </div>
+        <div class="hero-note">每天数量修改后，从下一次新计划开始生效；今天已开始的不变。</div>
         <div class="settings-card">
           <button class="settings-row" id="themeRow"><span>深色模式</span><b id="themeState">关</b></button>
           <button class="settings-row" id="resetProgress"><span>重置全部进度</span><b>清空</b></button>
@@ -153,7 +166,7 @@
     <div class="summary hidden" id="summary">
       <div class="summary-card">
         <div class="summary-head"><div><div class="summary-kicker">本组小结</div><h2>这 7 个词，先过一遍</h2></div><span class="summary-count" id="summaryCount">7 个</span></div>
-        <p class="summary-tip">点答案显示，再点遮住；长按答案可编辑。红色词需要补练。</p>
+        <p class="summary-tip">点答案显示，再点遮住；长按答案可编辑。红色词会在后面滚动回插，不挡新词。</p>
         <div class="summary-list" id="summaryList"></div>
         <button class="primary-btn wide" id="summaryContinue">继续下一组</button>
       </div>

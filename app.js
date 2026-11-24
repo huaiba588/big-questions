@@ -3,15 +3,15 @@
   const KEY = 'unified-344857-v1';
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
-  const TERM_DAILY = 20;
   const GROUP = 7;
-  const QUOTAS = {344:{简答:7,论述:3,综合:2}, 857:{简答:7,论述:3,综合:2}};
+  const ROLLING_GAP = 3;
   const SUBJECT_NAMES = {344:'344 风景园林基础', 857:'857 园林生态学'};
   const todayKey = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const addDays = n => { const d=new Date(); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const escapeHtml = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  const defaultState = () => ({progress:{},plans:{},custom:{},favorites:[],settings:{dark:false}});
+  const defaultState = () => ({progress:{},plans:{},custom:{},favorites:[],settings:{dark:false,dailyTerm:20,dailyBrief:7,dailyEssay:3,dailyComp:2}});
+  const quotas = () => ({简答:Math.max(0,Number(state.settings.dailyBrief)||0),论述:Math.max(0,Number(state.settings.dailyEssay)||0),综合:Math.max(0,Number(state.settings.dailyComp)||0)});
   function load() {
     try {
       const raw=localStorage.getItem(KEY); if(!raw) return defaultState();
@@ -21,7 +21,7 @@
   }
   let state=load();
   let subject='857', module='term';
-  let currentCat='all', currentFilter='all';
+  let currentCat='all', currentFilter='all', currentLearn='all';
   let currentItem=null, currentKind='new';
   let modalId=null;
   let answerLongTimer=null, answerLongFired=false, editId=null;
@@ -45,6 +45,7 @@
     $$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.goto===name));
     $('#backBtn').classList.toggle('hidden',name==='home');
     if(name!=='study') $('#summary').classList.add('hidden');
+    if(name==='settings') renderSettings();
     window.scrollTo({top:0,behavior:'instant'});
   }
   function applyTheme(){ document.body.classList.toggle('dark',!!state.settings.dark); $('#themeBtn').textContent=state.settings.dark?'☀':'☾'; $('#themeState').textContent=state.settings.dark?'开':'关'; }
@@ -61,8 +62,8 @@
     $('#subjKicker').textContent=`${s} · 四川农业大学 086200`;
     $('#subjTitle').textContent=SUBJECT_NAMES[s];
     const t=DATA[s].terms, b=DATA[s].bigs;
-    $('#termMeta').textContent=`${t.length} 个 · 每天 20 个 · 7 个一组`;
-    const q=QUOTAS[s];
+    $('#termMeta').textContent=`${t.length} 个 · 每天 ${state.settings.dailyTerm} 个 · 7 个一组`;
+    const q=quotas();
     $('#bigMeta').textContent=`简答 ${q.简答} · 论述 ${q.论述}${q.综合?` · 综合 ${q.综合}`:''} · 共 ${b.length} 题`;
     $('#backBtn').classList.remove('hidden');
     showScreen('subject');
@@ -101,9 +102,9 @@
     $('#dashMastered').textContent=mastered;
     $('#dashDueCard').textContent=due;
     $('#dashSummary').textContent=`已学 ${learned} / ${items(subject,module).length}`;
-    if(module==='term') $('#dashNote').textContent='每天 20 个新词；7 个一组；先清复习，再学新词';
+    if(module==='term') $('#dashNote').textContent=`每天 ${state.settings.dailyTerm} 个新词；7 个一组；先清复习，再学新词；错词滚动回插`;
     else {
-      const q=QUOTAS[subject];
+      const q=quotas();
       $('#dashNote').textContent=`先清复习，再学新题：简答 ${q.简答} · 论述 ${q.论述}${q.综合?` · 综合 ${q.综合}`:''}`;
     }
     if(plan?.summary) $('#startBtn').textContent='继续本组总结 →';
@@ -114,13 +115,13 @@
   function makeTermPlan(s){
     const pool=DATA[s].terms;
     const review=pool.filter(x=>isDue(progressOf(x.id))).sort((a,b)=>(progressOf(a.id)?.due||'').localeCompare(progressOf(b.id)?.due||'')||idNum(a)-idNum(b));
-    const fresh=pool.filter(x=>!progressOf(x.id)).sort((a,b)=>categoryRank(a)-categoryRank(b)||idNum(a)-idNum(b)).slice(0,TERM_DAILY);
-    return {subject:s,module:'term',date:todayKey(),reviewIds:review.map(x=>x.id),reviewIndex:0,newIds:fresh.map(x=>x.id),newIndex:0,groupStart:0,passed:[],retry:[],retryActive:false,summary:null};
+    const fresh=pool.filter(x=>!progressOf(x.id)).sort((a,b)=>categoryRank(a)-categoryRank(b)||idNum(a)-idNum(b)).slice(0,Math.max(0,Number(state.settings.dailyTerm)||0));
+    return {subject:s,module:'term',date:todayKey(),reviewIds:review.map(x=>x.id),reviewIndex:0,newIds:fresh.map(x=>x.id),newIndex:0,groupStart:0,passed:[],retry:[],retryActive:false,sinceRetry:0,summary:null};
   }
   function makeBigPlan(s){
     const pool=DATA[s].bigs;
     const review=pool.filter(x=>isDue(progressOf(x.id))).sort((a,b)=>(progressOf(a.id)?.due||'').localeCompare(progressOf(b.id)?.due||'')||idNum(a)-idNum(b));
-    const q=QUOTAS[s];
+    const q=quotas();
     const fresh=pool.filter(x=>!progressOf(x.id));
     const picked=[];
     Object.entries(q).forEach(([type,n])=>{
@@ -148,7 +149,7 @@
     if(!plan || plan.summary) return null;
     if(plan.reviewIndex<plan.reviewIds.length) return {item:byId(subject,module,plan.reviewIds[plan.reviewIndex]),kind:'review'};
     if(module==='term'){
-      if(plan.retryActive && plan.retry.length) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
+      if(plan.retry.length && (plan.sinceRetry>=ROLLING_GAP || plan.newIndex>=plan.newIds.length)) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
       if(plan.newIndex<plan.newIds.length) return {item:byId(subject,module,plan.newIds[plan.newIndex]),kind:'new'};
       if(plan.retry.length) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
     } else {
@@ -190,7 +191,11 @@
     $('#studyMode').textContent=currentKind==='review'?'复习':currentKind==='retry'?'补练 · 必须通过':(module==='term'?'新词':'新题');
     $('#studyChapter').textContent=module==='term'?(currentItem.chapter||'名解'):`${currentItem.type} · ${currentItem.score}分`;
     $('#studyTerm').textContent=module==='term'?currentItem.term:`${currentItem.title}`;
-    $('#studyTerm').classList.toggle('term-fail', !!(progressOf(currentItem.id)&&isFail(progressOf(currentItem.id).lastRating)));
+    const fp=progressOf(currentItem.id);
+    const firstGood=fp&&(fp.firstRating==='记得'||fp.firstRating==='熟记');
+    const firstBad=fp&&(fp.firstRating==='陌生'||fp.firstRating==='模糊');
+    $('#studyTerm').classList.toggle('first-good',!!firstGood);
+    $('#studyTerm').classList.toggle('first-bad',!!firstBad);
     $('#studyAnswer').innerHTML=answerHtml(currentItem);
     $('#answerBox').classList.add('hidden');
     $('#rating').classList.add('hidden');
@@ -206,8 +211,10 @@
   function rate(r){
     const plan=planOf(subject,module); const cur=getCurrent(); if(!plan||!cur) return;
     const item=cur.item, pass=!isFail(r);
+    const isFirst=!progressOf(item.id);
     const p=progressOf(item.id)||{reps:0,lapses:0};
     p.reps++; p.lastRating=r; p.last=todayKey();
+    if(isFirst){ p.firstRating=r; p.firstAt=todayKey(); }
     if(!pass){ p.interval=1; p.due=addDays(1); p.status='learning'; p.lapses=(p.lapses||0)+1; }
     else if(r==='记得'){ p.interval=2; p.due=addDays(2); p.status='review'; }
     else { p.interval=4; p.due=addDays(4); p.status='mastered'; }
@@ -215,17 +222,17 @@
 
     if(cur.kind==='review'){
       plan.reviewIndex++;
-      if(!pass){ plan.retry.push(item.id); plan.retryActive=true; }
+      if(!pass){ plan.retry.push(item.id); plan.sinceRetry=0; }
     } else if(cur.kind==='retry'){
       const at=plan.retry.indexOf(item.id);
       if(at>=0) plan.retry.splice(at,1);
       if(pass){ if(plan.newIds.includes(item.id)&&!plan.passed.includes(item.id)) plan.passed.push(item.id); }
-      else plan.retry.push(item.id);
-      if(!plan.retry.length) plan.retryActive=false;
+      else { plan.retry.push(item.id); plan.sinceRetry=0; }
     } else {
       if(pass){ if(!plan.passed.includes(item.id)) plan.passed.push(item.id); }
       else plan.retry.push(item.id);
       plan.newIndex++;
+      if(module==='term') plan.sinceRetry=(plan.sinceRetry||0)+1;
       if(module==='term' && (plan.newIndex-plan.groupStart>=GROUP || plan.newIndex===plan.newIds.length)){
         const ids=plan.newIds.slice(plan.groupStart,Math.min(plan.groupStart+GROUP,plan.newIds.length));
         plan.summary={ids}; plan.groupStart=plan.newIndex;
@@ -240,11 +247,11 @@
     showScreen('study'); $('#studyArea').classList.add('hidden'); $('#studyEmpty').classList.add('hidden');
     $('#summary').classList.remove('hidden');
     $('#summaryList').innerHTML=plan.summary.ids.map(id=>{
-      const t=byId(subject,'term',id), p=progressOf(id), fail=p&&isFail(p.lastRating);
+      const t=byId(subject,'term',id), p=progressOf(id), fail=p&&(p.firstRating==='陌生'||p.firstRating==='模糊');
       return `<div class="summary-item"><div class="summary-term ${fail?'term-fail':''}">${escapeHtml(t.term)}${fail?'<span class="fail-tag">需重练</span>':''}</div><button class="summary-answer covered" data-summary-id="${id}">${escapeHtml(t.answer)}</button></div>`;
     }).join('');
     $('#summaryCount').textContent=`${plan.summary.ids.length} 个`;
-    $('#summaryContinue').textContent=plan.retry.length?'继续补练':'继续下一组';
+    $('#summaryContinue').textContent=plan.newIndex<plan.newIds.length?'继续学新词':'继续补练';
   }
 
   function finish(){
@@ -257,7 +264,10 @@
   }
 
   function renderLibrary(){
-    const list=items(subject,module).filter(x=>currentCat==='all'||x.category===currentCat);
+    let list=items(subject,module).filter(x=>currentCat==='all'||x.category===currentCat);
+    if(currentLearn==='today') list=list.filter(x=>progressOf(x.id)?.last===todayKey());
+    else if(currentLearn==='past') list=list.filter(x=>progressOf(x.id) && progressOf(x.id).last!==todayKey());
+    else if(currentLearn==='new') list=list.filter(x=>!progressOf(x.id));
     const q=($('#searchInput').value||'').trim().toLowerCase();
     const filtered=q?list.filter(x=>((x.term||x.title||'')+(x.answer||'')+(x.full?JSON.stringify(x.full):'')).toLowerCase().includes(q)):list;
     $('#libKicker').textContent=`${subject} · ${module==='term'?'名词解释':'大题'}`;
@@ -265,7 +275,10 @@
     $('#libraryCount').textContent=`${filtered.length} 条`;
     $('#libraryList').innerHTML=filtered.map(x=>{
       const p=progressOf(x.id), dot=p?.status==='mastered'?'mastered':p?'learning':'';
-      return `<button class="term-item" data-lib-id="${x.id}"><span class="status-dot ${dot}"></span><span class="term-left"><span class="term-name">${escapeHtml(x.term||x.title)}</span><span class="term-sub">${escapeHtml(x.category)}${x.type?` · ${x.type} ${x.score}分`:''}</span></span><span style="color:var(--muted)">›</span></button>`;
+      const firstGood=p&&(p.firstRating==='记得'||p.firstRating==='熟记');
+      const firstBad=p&&(p.firstRating==='陌生'||p.firstRating==='模糊');
+      const learn=p?(p.last===todayKey()?'今天已学':'以往学过'):'未学习';
+      return `<button class="term-item" data-lib-id="${x.id}"><span class="status-dot ${dot}"></span><span class="term-left"><span class="term-name ${firstGood?'first-good':firstBad?'first-bad':''}">${escapeHtml(x.term||x.title)}</span><span class="term-sub">${escapeHtml(learn)} · ${escapeHtml(x.category)}${x.type?` · ${x.type} ${x.score}分`:''}</span></span><span style="color:var(--muted)">›</span></button>`;
     }).join('') || '<div class="empty-list">没有匹配内容。</div>';
   }
 
@@ -295,6 +308,11 @@
     list.addEventListener('focusout',e=>{ const a=e.target.closest('.summary-answer'); if(a) endEdit(a); });
   }
 
+  function renderSettings(){
+    const map={setDailyTerm:'dailyTerm',setDailyBrief:'dailyBrief',setDailyEssay:'dailyEssay',setDailyComp:'dailyComp'};
+    Object.entries(map).forEach(([id,key])=>{ const el=$('#'+id); if(el) el.value=state.settings[key]; });
+  }
+
   function bind(){
     $$('[data-subject]').forEach(b=>b.addEventListener('click',()=>openSubject(b.dataset.subject)));
     $$('[data-module]').forEach(b=>b.addEventListener('click',()=>openModule(b.dataset.module)));
@@ -304,10 +322,18 @@
     $('#dashLibBtn').addEventListener('click',()=>{ renderLibrary(); showScreen('library'); });
     $('#revealBtn').addEventListener('click',reveal);
     $$('.rate').forEach(b=>b.addEventListener('click',()=>rate(b.dataset.rate)));
-    $('#summaryContinue').addEventListener('click',()=>{ const p=planOf(subject,module); if(p){ p.summary=null; p.retryActive=p.retry.length>0; save(); } renderStudy(); });
+    $('#summaryContinue').addEventListener('click',()=>{ const p=planOf(subject,module); if(p){ p.summary=null; p.sinceRetry=0; save(); } renderStudy(); });
     $('#starBtn').addEventListener('click',()=>{ if(!currentItem)return; const i=state.favorites.indexOf(currentItem.id); if(i>=0)state.favorites.splice(i,1); else state.favorites.push(currentItem.id); save(); renderStudy(); });
     $('#themeBtn').addEventListener('click',()=>{ state.settings.dark=!state.settings.dark; save(); applyTheme(); });
     $('#themeRow').addEventListener('click',()=>{ state.settings.dark=!state.settings.dark; save(); applyTheme(); });
+    const dailyMap={setDailyTerm:'dailyTerm',setDailyBrief:'dailyBrief',setDailyEssay:'dailyEssay',setDailyComp:'dailyComp'};
+    Object.entries(dailyMap).forEach(([id,key])=>{
+      $('#'+id).addEventListener('change',(e)=>{
+        const v=Math.max(0,Math.min(80,parseInt(e.target.value||'0',10)||0));
+        state.settings[key]=v; save(); renderSettings();
+        toast('已保存，从下一次新计划生效');
+      });
+    });
     $('#resetProgress').addEventListener('click',()=>{ if(confirm('清空全部学习进度？不可恢复')){ state.progress={}; state.plans={}; save(); toast('进度已清空'); renderDash(); } });
     $('#resetEdits').addEventListener('click',()=>{ state.custom={}; save(); toast('答案已恢复'); });
     $$('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -318,6 +344,7 @@
     }));
     $('#searchInput').addEventListener('input',renderLibrary);
     $('#catChips').addEventListener('click',e=>{ const c=e.target.closest('.chip'); if(!c)return; currentCat=c.dataset.cat; $$('.chip',$('#catChips')).forEach(x=>x.classList.toggle('active',x===c)); renderLibrary(); });
+    $('#learnChips').addEventListener('click',e=>{ const c=e.target.closest('.chip'); if(!c)return; currentLearn=c.dataset.learn; $$('.chip',$('#learnChips')).forEach(x=>x.classList.toggle('active',x===c)); renderLibrary(); });
     $('#libraryList').addEventListener('click',e=>{ const b=e.target.closest('[data-lib-id]'); if(b) openModal(b.dataset.libId); });
     $('#modal').addEventListener('click',e=>{ if(e.target.closest('[data-close="modal"]')) closeModal(); });
     $('#modalStar').addEventListener('click',()=>{ if(!modalId)return; const i=state.favorites.indexOf(modalId); if(i>=0)state.favorites.splice(i,1); else state.favorites.push(modalId); save(); $('#modalStar').textContent=state.favorites.includes(modalId)?'★ 已收藏':'☆ 收藏'; });

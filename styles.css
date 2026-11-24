@@ -385,3 +385,8 @@ main { padding: 4px 16px 24px; }
 .module-icon { background: rgba(255,255,255,.18); color: #fff; }
 .module-name { color: #fff; font-size: 20px; }
 .module-desc, .module-arrow { color: rgba(255,255,255,.82); }
+
+.num-input { width: 64px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--text); font-family: inherit; font-size: 13px; text-align: center; padding: 5px 6px; }
+
+.first-good { color: var(--green) !important; font-weight: 700; }
+.first-bad { color: var(--danger) !important; font-weight: 700; }
