@@ -149,7 +149,8 @@
     if(!plan || plan.summary) return null;
     if(plan.reviewIndex<plan.reviewIds.length) return {item:byId(subject,module,plan.reviewIds[plan.reviewIndex]),kind:'review'};
     if(module==='term'){
-      if(plan.retry.length && (plan.sinceRetry>=ROLLING_GAP || plan.newIndex>=plan.newIds.length)) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
+      const retryReady = plan.groupStart>0 || plan.newIds.length===0;
+      if(plan.retry.length && retryReady && (plan.sinceRetry>=ROLLING_GAP || plan.newIndex>=plan.newIds.length)) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
       if(plan.newIndex<plan.newIds.length) return {item:byId(subject,module,plan.newIds[plan.newIndex]),kind:'new'};
       if(plan.retry.length) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
     } else {
@@ -182,6 +183,7 @@
   function renderStudy(){
     const plan=planOf(subject,module);
     if(plan?.summary){ renderSummary(); return; }
+    $('#summary').classList.add('hidden');
     const cur=getCurrent();
     if(!cur){ finish(); return; }
     currentItem=cur.item; currentKind=cur.kind;
@@ -360,7 +362,7 @@
     $('#dashLibBtn').addEventListener('click',()=>{ renderLibrary(); showScreen('library'); });
     $('#revealBtn').addEventListener('click',reveal);
     $$('.rate').forEach(b=>b.addEventListener('click',()=>rate(b.dataset.rate)));
-    $('#summaryContinue').addEventListener('click',()=>{ const p=planOf(subject,module); if(p){ p.summary=null; p.sinceRetry=0; save(); } renderStudy(); });
+    $('#summaryContinue').addEventListener('click',()=>{ const p=planOf(subject,module); if(p){ p.summary=null; p.sinceRetry=0; save(); } $('#summary').classList.add('hidden'); renderStudy(); });
     $('#starBtn').addEventListener('click',()=>{ if(!currentItem)return; const i=state.favorites.indexOf(currentItem.id); if(i>=0)state.favorites.splice(i,1); else state.favorites.push(currentItem.id); save(); renderStudy(); });
     $('#themeBtn').addEventListener('click',()=>{ state.settings.dark=!state.settings.dark; save(); applyTheme(); });
     $('#themeRow').addEventListener('click',()=>{ state.settings.dark=!state.settings.dark; save(); applyTheme(); });
