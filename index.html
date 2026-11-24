@@ -1,14 +1,177 @@
-<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>344 / 857 大题骨架训练</title>
-<style>
-:root{--bg:#f4f6f8;--card:#fffdf9;--ink:#1b2733;--muted:#74808c;--line:#d6dee6}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;padding:32px 18px}
-.wrap{max-width:620px;margin:0 auto}h1{font-size:30px;margin:0 0 6px;letter-spacing:-.5px}p{color:var(--muted);font-size:13px;line-height:1.7}
-a.card{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:14px;box-shadow:0 10px 30px rgba(28,42,54,.07)}
-a.card:active{transform:scale(.995)}.tag{display:inline-block;font-size:10px;font-weight:800;padding:5px 9px;border-radius:99px;margin-bottom:10px}
-.blue{color:#1f4e79;background:#e2edf6}.green{color:#1f6b4f;background:#e2efe6}.card h2{margin:0 0 4px;font-size:20px}.card small{color:var(--muted);font-size:11px}
-.foot{margin-top:22px;font-size:11px;color:var(--muted);text-align:center}
-</style></head><body><div class="wrap"><h1>大题骨架训练</h1><p>先列提纲，再看骨架。344 和 857 分开练，进度各自保存。</p>
-<a class="card" href="./344/"><span class="tag blue">344</span><h2>344 风景园林基础</h2><p>48 题 · 简答/论述 · 园林史、规划、热点</p><small>进入 344 训练 →</small></a>
-<a class="card" href="./857/"><span class="tag green">857</span><h2>857 园林生态学</h2><p>46 题 · 简答/论述 · 种群、群落、生态系统、景观</p><small>进入 857 训练 →</small></a>
-<div class="foot">建议先做第一批高频题，再做第二批专题题。</div></div></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f6b4f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="344/857 刷题">
+  <title>344/857 考研刷题</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-180.png">
+  <link rel="stylesheet" href="./styles.css?v=2">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <button class="icon-btn back-btn hidden" id="backBtn" aria-label="返回">‹</button>
+        <div class="brand"><span class="brand-mark">研</span><span class="brand-text" id="brandText">344/857</span></div>
+        <button class="icon-btn" id="themeBtn" aria-label="切换主题">☾</button>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="screen active" id="screen-home">
+        <div class="hero">
+          <div class="hero-kicker">四川农业大学 · 086200 风景园林</div>
+          <h1>今天，先复习<br>再学新的。</h1>
+          <p class="hero-sub">选一个科目开始</p>
+        </div>
+        <div class="subject-grid">
+          <button class="subject-card s857" data-subject="857">
+            <div class="subject-code">857</div>
+            <div class="subject-name">园林生态学</div>
+            <div class="subject-meta">名解 169 · 大题 60</div>
+            <div class="subject-arrow">进入 →</div>
+          </button>
+          <button class="subject-card s344" data-subject="344">
+            <div class="subject-code">344</div>
+            <div class="subject-name">风景园林基础</div>
+            <div class="subject-meta">名解 88 · 大题 85</div>
+            <div class="subject-arrow">进入 →</div>
+          </button>
+        </div>
+        <div class="hero-note">每天先清到期复习，再开始新内容</div>
+      </section>
+
+      <section class="screen" id="screen-subject">
+        <div class="page-head"><div><div class="hero-kicker" id="subjKicker">科目</div><h1 id="subjTitle">科目</h1></div></div>
+        <div class="module-grid">
+          <button class="module-card" data-module="term">
+            <div class="module-icon">名</div>
+            <div class="module-name">名词解释</div>
+            <div class="module-desc" id="termMeta">每天 20 个 · 7 个一组</div>
+            <div class="module-arrow">进入 →</div>
+          </button>
+          <button class="module-card" data-module="big">
+            <div class="module-icon">答</div>
+            <div class="module-name">大题</div>
+            <div class="module-desc" id="bigMeta">简答 7 · 论述 3 · 综合 2</div>
+            <div class="module-arrow">进入 →</div>
+          </button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-dash">
+        <div class="page-head">
+          <div><div class="hero-kicker" id="dashKicker">科目 · 板块</div><h1 id="dashTitle">今天</h1></div>
+          <button class="text-btn" id="dashLibBtn">题库 ›</button>
+        </div>
+        <div class="today-card">
+          <div class="today-ring" id="dashRing"><div class="ring-inner"><strong id="dashDone">0</strong><span>/ <em id="dashTotal">0</em></span></div></div>
+          <div class="today-info">
+            <div class="today-row"><span>待复习</span><b id="dashDue">0</b></div>
+            <div class="today-row"><span>今日新内容</span><b id="dashNew">0</b></div>
+            <div class="today-row"><span>已完成</span><b id="dashPassed">0</b></div>
+          </div>
+        </div>
+        <button class="primary-btn wide" id="startBtn">开始今日学习 →</button>
+        <div class="hero-note" id="dashNote">先复习到期内容，再学新内容</div>
+        <div class="section-head"><h2>题库概览</h2><span class="muted" id="dashSummary"></span></div>
+        <div class="stat-grid">
+          <div class="stat-card"><span class="stat-num" id="dashTotalCount">0</span><span class="stat-label">总条目</span></div>
+          <div class="stat-card"><span class="stat-num" id="dashMastered">0</span><span class="stat-label">熟记</span></div>
+          <div class="stat-card"><span class="stat-num" id="dashDueCard">0</span><span class="stat-label">待复习</span></div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-study">
+        <div class="study-top">
+          <div class="study-meta"><span id="studyProgressText">0 / 0</span><span class="dot">·</span><span id="studyMode">今日学习</span></div>
+          <div class="progress-track"><div class="progress-fill" id="studyProgressBar"></div></div>
+        </div>
+        <div class="study-area" id="studyArea">
+          <article class="study-card">
+            <div class="card-top">
+              <span class="chapter-chip" id="studyChapter">—</span>
+              <div class="card-tools"><button class="icon-btn small" id="starBtn">☆</button></div>
+            </div>
+            <h1 class="study-term" id="studyTerm">—</h1>
+            <div class="answer-box hidden" id="answerBox">
+              <div class="answer-label">参考答案</div>
+              <div class="answer-text" id="studyAnswer"></div>
+            </div>
+            <textarea id="draft" class="draft" rows="3" placeholder="先自己说一遍（可不写）"></textarea>
+            <button class="primary-btn wide" id="revealBtn">显示答案</button>
+            <div class="rating hidden" id="rating">
+              <button class="rate forgot" data-rate="陌生"><b>陌生</b><span>明天复习</span></button>
+              <button class="rate fuzzy" data-rate="模糊"><b>模糊</b><span>明天复习</span></button>
+              <button class="rate remember" data-rate="记得"><b>记得</b><span>2 天后</span></button>
+              <button class="rate mastered" data-rate="熟记"><b>熟记</b><span>4 天后</span></button>
+            </div>
+          </article>
+        </div>
+        <div class="empty-state hidden" id="studyEmpty">
+          <div class="empty-icon">🌿</div>
+          <h2>今天这组完成了</h2>
+          <p id="emptyText">先复习，再学新内容。</p>
+          <button class="primary-btn" id="emptyHomeBtn">回到首页</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-library">
+        <div class="page-head"><div><div class="hero-kicker" id="libKicker">题库</div><h1 id="libTitle">题库</h1></div><span class="muted" id="libraryCount">0</span></div>
+        <div class="search-wrap"><span class="search-icon">⌕</span><input id="searchInput" placeholder="搜索题目 / 关键词"></div>
+        <div class="chips" id="catChips">
+          <button class="chip active" data-cat="all">全部</button>
+          <button class="chip" data-cat="重点">重点</button>
+          <button class="chip" data-cat="了解">了解</button>
+        </div>
+        <div class="term-list" id="libraryList"></div>
+      </section>
+
+      <section class="screen" id="screen-settings">
+        <div class="page-head"><div><div class="hero-kicker">设置</div><h1>数据与显示</h1></div></div>
+        <div class="settings-card">
+          <button class="settings-row" id="themeRow"><span>深色模式</span><b id="themeState">关</b></button>
+          <button class="settings-row" id="resetProgress"><span>重置全部进度</span><b>清空</b></button>
+          <button class="settings-row" id="resetEdits"><span>恢复原答案</span><b>恢复</b></button>
+        </div>
+        <div class="hero-note">进度只存在本机浏览器；换设备不会同步。</div>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="tab active" data-goto="home"><span>⌂</span><b>首页</b></button>
+      <button class="tab" data-goto="library"><span>☰</span><b>题库</b></button>
+      <button class="tab" data-goto="settings"><span>⚙</span><b>设置</b></button>
+    </nav>
+
+    <div class="summary hidden" id="summary">
+      <div class="summary-card">
+        <div class="summary-head"><div><div class="summary-kicker">本组小结</div><h2>这 7 个词，先过一遍</h2></div><span class="summary-count" id="summaryCount">7 个</span></div>
+        <p class="summary-tip">点答案显示，再点遮住；长按答案可编辑。红色词需要补练。</p>
+        <div class="summary-list" id="summaryList"></div>
+        <button class="primary-btn wide" id="summaryContinue">继续下一组</button>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="modal">
+      <div class="modal-backdrop" data-close="modal"></div>
+      <div class="modal-card">
+        <div class="modal-top"><span class="chapter-chip" id="modalChapter">—</span><button class="icon-btn" data-close="modal">×</button></div>
+        <h2 id="modalTerm">—</h2>
+        <div class="modal-answer" id="modalAnswer"></div>
+        <div class="modal-actions"><button class="secondary-btn" id="modalStar">☆ 收藏</button></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

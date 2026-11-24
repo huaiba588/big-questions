@@ -1,26 +1,21 @@
 {
-  "name": "857 大题骨架训练",
-  "short_name": "857 大题",
-  "description": "857 园林生态学 简答/论述训练：先列提纲，再看骨架。",
-  "lang": "zh-CN",
+  "name": "344/857 考研刷题",
+  "short_name": "344/857",
+  "description": "四川农业大学 086200 风景园林 344/857 名解与大题",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#f4f6f8",
+  "background_color": "#f6f4ee",
   "theme_color": "#1f6b4f",
   "icons": [
     {
       "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
     },
     {
       "src": "./icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/png"
     },
     {
       "src": "./icons/icon-maskable-512.png",

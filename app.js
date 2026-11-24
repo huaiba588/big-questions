@@ -1,497 +1,328 @@
 (() => {
-  'use strict';
+  const DATA = window.UNIFIED_DATA;
+  const KEY = 'unified-344857-v1';
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+  const TERM_DAILY = 20;
+  const GROUP = 7;
+  const QUOTAS = {344:{简答:7,论述:3,综合:2}, 857:{简答:7,论述:3,综合:2}};
+  const SUBJECT_NAMES = {344:'344 风景园林基础', 857:'857 园林生态学'};
+  const todayKey = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const addDays = n => { const d=new Date(); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const escapeHtml = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  const SUBJECT = window.APP_SUBJECT || '344';
-  const DATA = Array.isArray(window.APP_DATA) ? window.APP_DATA : [];
-  const STORE_KEY = `bigq-${SUBJECT}-v2`;
-  const $ = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-
-  function todayKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-  function addDays(n) {
-    const d = new Date();
-    d.setDate(d.getDate() + n);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-  function escapeHtml(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-  }
-  function shuffle(a) {
-    const x = a.slice();
-    for (let i = x.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [x[i], x[j]] = [x[j], x[i]];
-    }
-    return x;
-  }
-
-  const defaultState = () => ({
-    progress: {},
-    drafts: {},
-    days: {},
-    settings: { daily: 3, order: 'random', dark: false }
-  });
+  const defaultState = () => ({progress:{},plans:{},custom:{},favorites:[],settings:{dark:false}});
   function load() {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return defaultState();
-      const p = JSON.parse(raw);
-      const base = defaultState();
-      return {
-        ...base, ...p,
-        progress: p.progress || {},
-        drafts: p.drafts || {},
-        days: p.days || {},
-        settings: { ...base.settings, ...(p.settings || {}) }
-      };
-    } catch (e) { return defaultState(); }
+      const raw=localStorage.getItem(KEY); if(!raw) return defaultState();
+      const p=JSON.parse(raw), b=defaultState();
+      return {...b,...p,progress:p.progress||{},plans:p.plans||{},custom:p.custom||{},favorites:p.favorites||[],settings:{...b.settings,...(p.settings||{})}};
+    } catch(e){ return defaultState(); }
   }
-  let state = load();
-  let queue = [];
-  let index = 0;
-  let sessionMode = '今日训练';
-  let filter = 'all';
-  let currentModal = null;
+  let state=load();
+  let subject='857', module='term';
+  let currentCat='all', currentFilter='all';
+  let currentItem=null, currentKind='new';
+  let modalId=null;
+  let answerLongTimer=null, answerLongFired=false, editId=null;
+  let toastTimer=null;
 
-  function save() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
-    catch (e) { toast('保存失败，浏览器存储可能已满'); }
+  const save=()=>{ try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){toast('保存失败，存储空间可能已满');} };
+  const subjectData = s => DATA[s];
+  const items = (s,m) => m==='term' ? DATA[s].terms : DATA[s].bigs;
+  const byId = (s,m,id) => items(s,m).find(x=>x.id===id);
+  const keyOf = (s,m) => `${s}:${m}`;
+  const planOf = (s,m) => state.plans[keyOf(s,m)];
+  const progressOf = id => state.progress[id];
+  const isDue = p => p && p.due && p.due <= todayKey();
+  const isFail = r => r==='陌生'||r==='模糊';
+  const categoryRank = x => x.category==='重点'?0:1;
+  const idNum = x => Number(x.id.split('-').pop()) || 0;
+
+  function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),1900); }
+  function showScreen(name){
+    $$('.screen').forEach(s=>s.classList.toggle('active',s.id===`screen-${name}`));
+    $$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.goto===name));
+    $('#backBtn').classList.toggle('hidden',name==='home');
+    if(name!=='study') $('#summary').classList.add('hidden');
+    window.scrollTo({top:0,behavior:'instant'});
   }
-  function toast(msg) {
-    const el = $('#toast');
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.classList.remove('show'), 1800);
+  function applyTheme(){ document.body.classList.toggle('dark',!!state.settings.dark); $('#themeBtn').textContent=state.settings.dark?'☀':'☾'; $('#themeState').textContent=state.settings.dark?'开':'关'; }
+
+  function renderHome(){
+    subject='857'; module='term';
+    $('#brandText').textContent='344/857';
+    showScreen('home');
   }
-  function progressOf(id) { return state.progress[id] || null; }
-  function isMastered(id) { return !!progressOf(id)?.mastered; }
-  function isPracticed(id) { return !!progressOf(id); }
-  function learnedCount() { return DATA.filter(x => isPracticed(x.id)).length; }
-  function masteredCount() { return DATA.filter(x => isMastered(x.id)).length; }
-  function dueList() {
-    const t = todayKey();
-    return DATA.filter(x => {
-      const p = progressOf(x.id);
-      return p && p.due && p.due <= t;
-    });
+
+  function openSubject(s){
+    subject=s; module='term';
+    $('#brandText').textContent=s;
+    $('#subjKicker').textContent=`${s} · 四川农业大学 086200`;
+    $('#subjTitle').textContent=SUBJECT_NAMES[s];
+    const t=DATA[s].terms, b=DATA[s].bigs;
+    $('#termMeta').textContent=`${t.length} 个 · 每天 20 个 · 7 个一组`;
+    const q=QUOTAS[s];
+    $('#bigMeta').textContent=`简答 ${q.简答} · 论述 ${q.论述}${q.综合?` · 综合 ${q.综合}`:''} · 共 ${b.length} 题`;
+    $('#backBtn').classList.remove('hidden');
+    showScreen('subject');
   }
-  function newList() { return DATA.filter(x => !isPracticed(x.id)); }
-  function todayDone() { return state.days[todayKey()] || 0; }
-  function streak() {
-    let n = 0;
-    const d = new Date();
-    if (!state.days[todayKey()]) d.setDate(d.getDate() - 1);
-    while (true) {
-      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      if (state.days[k] > 0) { n++; d.setDate(d.getDate() - 1); } else break;
+
+  function openModule(m){
+    module=m;
+    $('#brandText').textContent=`${subject} · ${m==='term'?'名解':'大题'}`;
+    renderDash();
+    showScreen('dash');
+  }
+
+  function planProgress(plan){
+    if(!plan) return {done:0,total:0,newLeft:0,due:0};
+    const done=plan.passed.length+plan.reviewIndex;
+    return {done,total:plan.newIds.length+plan.reviewIds.length,newLeft:Math.max(0,plan.newIds.length-plan.passed.length),due:plan.reviewIds.length-plan.reviewIndex};
+  }
+  function dueTotal(s,m){
+    return items(s,m).filter(x=>isDue(progressOf(x.id))).length;
+  }
+  function renderDash(){
+    const plan=planOf(subject,module);
+    const pp=planProgress(plan);
+    const due=dueTotal(subject,module);
+    const learned=items(subject,module).filter(x=>progressOf(x.id)).length;
+    const mastered=items(subject,module).filter(x=>progressOf(x.id)?.status==='mastered').length;
+    $('#dashKicker').textContent=`${subject} · ${module==='term'?'名词解释':'大题'}`;
+    $('#dashTitle').textContent=module==='term'?'今日名解':'今日大题';
+    $('#dashDone').textContent=pp.done;
+    $('#dashTotal').textContent=pp.total;
+    $('#dashRing').style.setProperty('--p', `${pp.total?Math.round(pp.done/pp.total*100):0}%`);
+    $('#dashDue').textContent=due;
+    $('#dashNew').textContent=pp.newLeft;
+    $('#dashPassed').textContent=plan?plan.passed.length:0;
+    $('#dashTotalCount').textContent=items(subject,module).length;
+    $('#dashMastered').textContent=mastered;
+    $('#dashDueCard').textContent=due;
+    $('#dashSummary').textContent=`已学 ${learned} / ${items(subject,module).length}`;
+    if(module==='term') $('#dashNote').textContent='每天 20 个新词；7 个一组；先清复习，再学新词';
+    else {
+      const q=QUOTAS[subject];
+      $('#dashNote').textContent=`先清复习，再学新题：简答 ${q.简答} · 论述 ${q.论述}${q.综合?` · 综合 ${q.综合}`:''}`;
     }
-    return n;
-  }
-  function levelOf(id) { return progressOf(id)?.level; }
-  function levelText(l) { return ['没思路', '有框架', '能展开', '能写完'][l] || '未练'; }
-
-  function applyTheme() {
-    document.body.classList.toggle('dark', !!state.settings.dark);
-    $('#themeBtn').textContent = state.settings.dark ? '☀' : '☾';
-    const m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', state.settings.dark ? '#10161c' : (SUBJECT === '344' ? '#1f4e79' : '#1f6b4f'));
+    if(plan?.summary) $('#startBtn').textContent='继续本组总结 →';
+    else if(pp.total && pp.done<pp.total) $('#startBtn').textContent='继续今日学习 →';
+    else $('#startBtn').textContent='开始今日学习 →';
   }
 
-  function showScreen(name) {
-    $$('.screen').forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
-    $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.goto === name));
-    $('#backBtn').classList.toggle('hidden', name !== 'train');
-    if (name !== 'train') stopTimer();
-    if (name === 'home') renderHome();
-    if (name === 'library') renderLibrary();
-    if (name === 'stats') renderStats();
-    if (name === 'settings') renderSettings();
-    window.scrollTo({ top: 0, behavior: 'instant' });
+  function makeTermPlan(s){
+    const pool=DATA[s].terms;
+    const review=pool.filter(x=>isDue(progressOf(x.id))).sort((a,b)=>(progressOf(a.id)?.due||'').localeCompare(progressOf(b.id)?.due||'')||idNum(a)-idNum(b));
+    const fresh=pool.filter(x=>!progressOf(x.id)).sort((a,b)=>categoryRank(a)-categoryRank(b)||idNum(a)-idNum(b)).slice(0,TERM_DAILY);
+    return {subject:s,module:'term',date:todayKey(),reviewIds:review.map(x=>x.id),reviewIndex:0,newIds:fresh.map(x=>x.id),newIndex:0,groupStart:0,passed:[],retry:[],retryActive:false,summary:null};
   }
-
-  function renderHome() {
-    const due = dueList().length;
-    const availableNew = newList().length;
-    const daily = state.settings.daily;
-    const newSlots = Math.min(availableNew, Math.max(0, daily - due));
-    const done = todayDone();
-    const target = Math.max(daily, done);
-    $('#todayRing').style.setProperty('--p', `${target ? Math.min(100, done / target * 100) : 0}%`);
-    $('#todayDone').textContent = done;
-    $('#todayTarget').textContent = daily;
-    $('#dueCount').textContent = due;
-    $('#newCount').textContent = newSlots;
-    $('#masteredCount').textContent = masteredCount();
-    $('#statDone').textContent = learnedCount();
-    $('#statStreak').textContent = streak();
-    $('#statMastered').textContent = masteredCount();
-    $('#streakPill').textContent = `🔥 ${streak()} 天`;
-    const d = new Date();
-    $('#todayLabel').textContent = `${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]} · 简答/论述`;
-    $('#totalLabel').textContent = `${learnedCount()} / ${DATA.length}`;
-    renderTopics($('#topicList'));
-  }
-
-  function topicGroups() {
-    const map = new Map();
-    DATA.forEach(x => {
-      if (!map.has(x.topic)) map.set(x.topic, { total: 0, learned: 0, mastered: 0 });
-      const g = map.get(x.topic);
-      g.total++;
-      if (isPracticed(x.id)) g.learned++;
-      if (isMastered(x.id)) g.mastered++;
+  function makeBigPlan(s){
+    const pool=DATA[s].bigs;
+    const review=pool.filter(x=>isDue(progressOf(x.id))).sort((a,b)=>(progressOf(a.id)?.due||'').localeCompare(progressOf(b.id)?.due||'')||idNum(a)-idNum(b));
+    const q=QUOTAS[s];
+    const fresh=pool.filter(x=>!progressOf(x.id));
+    const picked=[];
+    Object.entries(q).forEach(([type,n])=>{
+      if(!n) return;
+      const typePool=fresh.filter(x=>x.type===type && !picked.includes(x.id));
+      const key=typePool.filter(x=>x.category==='重点').sort((a,b)=>idNum(a)-idNum(b));
+      const know=typePool.filter(x=>x.category==='了解').sort((a,b)=>idNum(a)-idNum(b));
+      picked.push(...key.slice(0,n).map(x=>x.id));
+      if(picked.filter(id=>byId(s,'big',id)?.type===type).length<n){
+        const need=n-picked.filter(id=>byId(s,'big',id)?.type===type).length;
+        picked.push(...know.slice(0,need).map(x=>x.id));
+      }
     });
-    return Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total);
+    return {subject:s,module:'big',date:todayKey(),reviewIds:review.map(x=>x.id),reviewIndex:0,newIds:picked,newIndex:0,passed:[],retry:[],retryActive:false,summary:null};
   }
-  function renderTopics(el) {
-    if (!el) return;
-    el.innerHTML = topicGroups().map(([topic, g]) => {
-      const pct = g.total ? Math.round(g.learned / g.total * 100) : 0;
-      return `<div class="topic-item"><div class="topic-line"><span>${escapeHtml(topic)}</span><span>${g.learned}/${g.total}</span></div><div class="mini-track"><div class="mini-fill" style="width:${pct}%"></div></div></div>`;
-    }).join('');
+  function ensurePlan(){
+    const existing=planOf(subject,module);
+    if(existing && existing.date===todayKey()) return existing;
+    const p=module==='term'?makeTermPlan(subject):makeBigPlan(subject);
+    state.plans[keyOf(subject,module)]=p; save(); return p;
   }
 
-  function todayQueue() {
-    const due = dueList();
-    const fresh = newList();
-    let list = [];
-    if (state.settings.order === 'sequence') {
-      list = [...due, ...fresh].sort((a, b) => a.id - b.id);
+  function getCurrent(){
+    const plan=planOf(subject,module);
+    if(!plan || plan.summary) return null;
+    if(plan.reviewIndex<plan.reviewIds.length) return {item:byId(subject,module,plan.reviewIds[plan.reviewIndex]),kind:'review'};
+    if(module==='term'){
+      if(plan.retryActive && plan.retry.length) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
+      if(plan.newIndex<plan.newIds.length) return {item:byId(subject,module,plan.newIds[plan.newIndex]),kind:'new'};
+      if(plan.retry.length) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
     } else {
-      list = [...shuffle(due), ...shuffle(fresh)];
+      if(plan.newIndex<plan.newIds.length) return {item:byId(subject,module,plan.newIds[plan.newIndex]),kind:'new'};
+      if(plan.retry.length) return {item:byId(subject,module,plan.retry[0]),kind:'retry'};
     }
-    return list.slice(0, state.settings.daily);
+    return null;
   }
 
-  function startSession(mode) {
-    sessionMode = mode === 'S' ? '简答专项' : mode === 'L' ? '论述专项' : mode === 'single' ? '单题训练' : '今日训练';
-    if (mode === 'S' || mode === 'L') {
-      const type = mode === 'S' ? '简答' : '论述';
-      queue = shuffle(DATA.filter(x => x.type === type && !isMastered(x.id))).slice(0, 10);
-    } else if (mode !== 'single') {
-      queue = todayQueue();
-    }
-    index = 0;
-    showScreen('train');
-    if (!queue.length) {
-      $('#trainArea').classList.add('hidden');
-      $('#trainEmpty').classList.remove('hidden');
-      $('#trainProgressText').textContent = '0 / 0';
-      $('#trainProgressBar').style.width = '0%';
-      $('#emptyText').textContent = '这一组没有题了。可以回首页，或去题库挑一道。';
-      return;
-    }
-    $('#trainArea').classList.remove('hidden');
-    $('#trainEmpty').classList.add('hidden');
-    renderTrain();
+  function answerHtml(item){
+    const custom=state.custom[item.id];
+    if(custom) return `<div>${escapeHtml(custom)}</div>`;
+    if(module==='term') return `<div>${escapeHtml(item.answer)}</div>`;
+    return (item.full||[]).map(s=>`<div class="ans-point"><b>${escapeHtml(s.h)}：</b>${escapeHtml(s.t)}</div>`).join('') + (item.pit?`<div class="ans-pit">易漏：${escapeHtml(item.pit)}</div>`:'');
+  }
+  function plainAnswer(item){
+    if(state.custom[item.id]) return state.custom[item.id];
+    if(module==='term') return item.answer;
+    return (item.full||[]).map(s=>`${s.h}：${s.t}`).join('\n') + (item.pit?`\n易漏：${item.pit}`:'');
   }
 
-  function currentItem() { return queue[index] || null; }
+  function startStudy(){
+    const plan=ensurePlan();
+    showScreen('study');
+    if(plan.summary){ renderSummary(); return; }
+    if(!getCurrent()){ finish(); return; }
+    renderStudy();
+  }
 
-  function renderTrain() {
-    if (!queue.length || index >= queue.length) { finishSession(); return; }
-    const item = currentItem();
-    const p = progressOf(item.id);
-    $('#trainProgressText').textContent = `${index + 1} / ${queue.length}`;
-    $('#trainProgressBar').style.width = `${Math.round(index / queue.length * 100)}%`;
-    $('#trainMode').textContent = sessionMode;
-    $('#trainType').textContent = item.type;
-    $('#trainSource').textContent = item.source;
-    $('#trainScore').textContent = `${item.score} 分`;
-    $('#trainTitle').textContent = item.title;
-    $('#outline').value = state.drafts[item.id] || '';
-    $('#skeleton').classList.add('hidden');
-    $('#ratings').classList.add('hidden');
+  function renderStudy(){
+    const plan=planOf(subject,module);
+    if(plan?.summary){ renderSummary(); return; }
+    const cur=getCurrent();
+    if(!cur){ finish(); return; }
+    currentItem=cur.item; currentKind=cur.kind;
+    const pp=planProgress(plan);
+    $('#studyProgressText').textContent=`${pp.done} / ${pp.total}`;
+    $('#studyProgressBar').style.width=`${pp.total?Math.round(pp.done/pp.total*100):0}%`;
+    $('#studyMode').textContent=currentKind==='review'?'复习':currentKind==='retry'?'补练 · 必须通过':(module==='term'?'新词':'新题');
+    $('#studyChapter').textContent=module==='term'?(currentItem.chapter||'名解'):`${currentItem.type} · ${currentItem.score}分`;
+    $('#studyTerm').textContent=module==='term'?currentItem.term:`${currentItem.title}`;
+    $('#studyTerm').classList.toggle('term-fail', !!(progressOf(currentItem.id)&&isFail(progressOf(currentItem.id).lastRating)));
+    $('#studyAnswer').innerHTML=answerHtml(currentItem);
+    $('#answerBox').classList.add('hidden');
+    $('#rating').classList.add('hidden');
     $('#revealBtn').classList.remove('hidden');
-    $('#revealBtn').textContent = p ? '再看一次骨架' : '显示骨架';
-    $('#timerTarget').textContent = item.type === '简答' ? '建议 10 分钟' : '建议 20 分钟';
-    resetTimer(item.type === '简答' ? 600 : 1200);
+    $('#draft').classList.remove('hidden');
+    $('#draft').value='';
+    $('#starBtn').textContent=state.favorites.includes(currentItem.id)?'★':'☆';
   }
 
-  function skeletonHtml(item) {
-    const points = item.points.map((p, i) => `<li>${escapeHtml(p)}</li>`).join('');
-    return `<div class="sk-block"><div class="sk-label">破题</div><div class="sk-text">${escapeHtml(item.breakq)}</div></div>
-      <div class="sk-block"><div class="sk-label">骨架</div><ol class="sk-points">${points}</ol></div>
-      <div class="sk-block"><div class="sk-label">关键词</div><div class="sk-text">${escapeHtml(item.keys)}</div></div>
-      <div class="sk-block"><div class="sk-label">案例/机制</div><div class="sk-text">${escapeHtml(item.case)}</div></div>
-      <div class="sk-block sk-pit"><div class="sk-label">易漏点</div><div class="sk-text">${escapeHtml(item.pit)}</div></div>`;
-  }
+  function reveal(){ if(!getCurrent()) return; $('#answerBox').classList.remove('hidden'); $('#rating').classList.remove('hidden'); $('#revealBtn').classList.add('hidden'); $('#draft').classList.add('hidden'); }
+  function hide(){ $('#answerBox').classList.add('hidden'); $('#rating').classList.add('hidden'); $('#revealBtn').classList.remove('hidden'); $('#draft').classList.remove('hidden'); }
 
-  function reveal() {
-    const item = currentItem();
-    if (!item) return;
-    $('#sBreak').textContent = item.breakq;
-    $('#sPoints').innerHTML = item.points.map(p => `<li>${escapeHtml(p)}</li>`).join('');
-    $('#sKeys').textContent = item.keys;
-    $('#sCase').textContent = item.case;
-    $('#sPit').textContent = item.pit;
-    $('#skeleton').classList.remove('hidden');
-    $('#ratings').classList.remove('hidden');
-    $('#revealBtn').classList.add('hidden');
-  }
+  function rate(r){
+    const plan=planOf(subject,module); const cur=getCurrent(); if(!plan||!cur) return;
+    const item=cur.item, pass=!isFail(r);
+    const p=progressOf(item.id)||{reps:0,lapses:0};
+    p.reps++; p.lastRating=r; p.last=todayKey();
+    if(!pass){ p.interval=1; p.due=addDays(1); p.status='learning'; p.lapses=(p.lapses||0)+1; }
+    else if(r==='记得'){ p.interval=2; p.due=addDays(2); p.status='review'; }
+    else { p.interval=4; p.due=addDays(4); p.status='mastered'; }
+    state.progress[item.id]=p;
 
-  function rate(level) {
-    const item = currentItem();
-    if (!item) return;
-    const p = progressOf(item.id) || { reps: 0, level: 0 };
-    p.level = Number(level);
-    p.reps = (p.reps || 0) + 1;
-    p.last = todayKey();
-    p.due = addDays([1, 2, 4, 7][p.level]);
-    if (p.level === 3 && p.reps >= 2) p.mastered = true;
-    state.progress[item.id] = p;
-    state.days[todayKey()] = (state.days[todayKey()] || 0) + 1;
+    if(cur.kind==='review'){
+      plan.reviewIndex++;
+      if(!pass){ plan.retry.push(item.id); plan.retryActive=true; }
+    } else if(cur.kind==='retry'){
+      const at=plan.retry.indexOf(item.id);
+      if(at>=0) plan.retry.splice(at,1);
+      if(pass){ if(plan.newIds.includes(item.id)&&!plan.passed.includes(item.id)) plan.passed.push(item.id); }
+      else plan.retry.push(item.id);
+      if(!plan.retry.length) plan.retryActive=false;
+    } else {
+      if(pass){ if(!plan.passed.includes(item.id)) plan.passed.push(item.id); }
+      else plan.retry.push(item.id);
+      plan.newIndex++;
+      if(module==='term' && (plan.newIndex-plan.groupStart>=GROUP || plan.newIndex===plan.newIds.length)){
+        const ids=plan.newIds.slice(plan.groupStart,Math.min(plan.groupStart+GROUP,plan.newIds.length));
+        plan.summary={ids}; plan.groupStart=plan.newIndex;
+      }
+    }
     save();
-    index++;
-    if (index >= queue.length) finishSession();
-    else renderTrain();
+    if(plan.summary) renderSummary(); else renderStudy();
   }
 
-  function finishSession() {
-    $('#trainArea').classList.add('hidden');
-    $('#trainEmpty').classList.remove('hidden');
-    $('#trainProgressBar').style.width = '100%';
-    $('#trainProgressText').textContent = `${queue.length} / ${queue.length}`;
-    $('#emptyText').textContent = '这一组练完了。回首页可以开始下一组，或去题库挑一道。';
-    stopTimer();
-  }
-
-  // timer
-  let timerSec = 0, timerId = null, timerRunning = false, timerTarget = 600, timerWarned = false;
-  function fmt(sec) {
-    const m = Math.floor(sec / 60), s = sec % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-  function renderTimer() { $('#timer').textContent = fmt(timerSec); }
-  function stopTimer() {
-    timerRunning = false;
-    clearInterval(timerId);
-    timerId = null;
-    const b = $('#timerBtn');
-    if (b) b.textContent = timerSec ? '继续计时' : '开始计时';
-  }
-  function resetTimer(target) {
-    stopTimer(); timerSec = 0; timerTarget = target || 600; timerWarned = false; renderTimer();
-  }
-  function toggleTimer() {
-    if (timerRunning) { stopTimer(); return; }
-    timerRunning = true;
-    $('#timerBtn').textContent = '暂停';
-    timerId = setInterval(() => {
-      timerSec++;
-      renderTimer();
-      if (!timerWarned && timerSec >= timerTarget) {
-        timerWarned = true;
-        toast('建议时间到了，先收尾写结论');
-      }
-    }, 1000);
-  }
-
-  function renderLibrary() {
-    const q = ($('#searchInput').value || '').trim().toLowerCase();
-    let list = DATA.slice().sort((a, b) => a.id - b.id);
-    if (filter === '简答' || filter === '论述') list = list.filter(x => x.type === filter);
-    if (filter === 'new') list = list.filter(x => !isPracticed(x.id));
-    if (filter === 'mastered') list = list.filter(x => isMastered(x.id));
-    if (q) list = list.filter(x => (x.title + x.breakq + x.keys + x.case + x.pit).toLowerCase().includes(q));
-    $('#libraryCount').textContent = `${list.length} 题`;
-    if (!list.length) {
-      $('#questionList').innerHTML = '<div class="empty-list">没有匹配的题目。</div>';
-      return;
-    }
-    $('#questionList').innerHTML = list.map(x => {
-      const l = levelOf(x.id);
-      const dots = [0,1,2,3].map(i => `<span class="level-dot ${l != null && i <= l ? 'on' : ''}"></span>`).join('');
-      return `<button class="q-item" data-id="${x.id}"><span class="q-left"><span class="q-name">${escapeHtml(x.title)}</span><span class="q-sub"><span class="type-tag">${x.type} ${x.score}分</span><span>${escapeHtml(x.topic)}</span><span>${escapeHtml(x.source)}</span></span><span class="level-dots">${dots}</span></span><span style="color:var(--muted)">›</span></button>`;
+  function renderSummary(){
+    const plan=planOf(subject,module); if(!plan?.summary){ renderStudy(); return; }
+    showScreen('study'); $('#studyArea').classList.add('hidden'); $('#studyEmpty').classList.add('hidden');
+    $('#summary').classList.remove('hidden');
+    $('#summaryList').innerHTML=plan.summary.ids.map(id=>{
+      const t=byId(subject,'term',id), p=progressOf(id), fail=p&&isFail(p.lastRating);
+      return `<div class="summary-item"><div class="summary-term ${fail?'term-fail':''}">${escapeHtml(t.term)}${fail?'<span class="fail-tag">需重练</span>':''}</div><button class="summary-answer covered" data-summary-id="${id}">${escapeHtml(t.answer)}</button></div>`;
     }).join('');
+    $('#summaryCount').textContent=`${plan.summary.ids.length} 个`;
+    $('#summaryContinue').textContent=plan.retry.length?'继续补练':'继续下一组';
   }
 
-  function openModal(item) {
-    currentModal = item;
-    $('#mType').textContent = `${item.type} ${item.score}分`;
-    $('#mTitle').textContent = item.title;
-    $('#mBody').innerHTML = skeletonHtml(item);
-    $('#modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeModal() {
-    $('#modal').classList.add('hidden');
-    document.body.style.overflow = '';
-    currentModal = null;
+  function finish(){
+    const plan=planOf(subject,module);
+    $('#summary').classList.add('hidden'); $('#studyArea').classList.add('hidden'); $('#studyEmpty').classList.remove('hidden');
+    $('#studyProgressBar').style.width='100%';
+    const pp=planProgress(plan);
+    $('#studyProgressText').textContent=`${pp.done} / ${pp.total}`;
+    $('#emptyText').textContent = pp.newLeft||pp.due ? `还有 ${pp.newLeft} 个新内容、${pp.due} 个复习，回首页继续。` : '今天的内容完成了。';
   }
 
-  function barRow(label, value, total) {
-    const pct = total ? Math.round(value / total * 100) : 0;
-    return `<div class="bar-row"><span>${label}</span><span class="bar"><i style="width:${pct}%"></i></span><b>${value}/${total}</b></div>`;
-  }
-  function renderStats() {
-    const learned = learnedCount(), mastered = masteredCount();
-    const days = Object.values(state.days).filter(v => v > 0).length;
-    $('#statDone2').textContent = learned;
-    $('#statMastered2').textContent = mastered;
-    $('#statDays2').textContent = days;
-    const sTotal = DATA.filter(x => x.type === '简答').length;
-    const lTotal = DATA.filter(x => x.type === '论述').length;
-    const sDone = DATA.filter(x => x.type === '简答' && isPracticed(x.id)).length;
-    const lDone = DATA.filter(x => x.type === '论述' && isPracticed(x.id)).length;
-    $('#typeBars').innerHTML = barRow('简答', sDone, sTotal) + barRow('论述', lDone, lTotal);
-    const counts = [0,1,2,3].map(l => DATA.filter(x => levelOf(x.id) === l).length);
-    $('#levelBars').innerHTML = counts.map((v,i) => barRow(levelText(i), v, DATA.length)).join('');
-    renderWeek();
-    $('#topicStats').innerHTML = topicGroups().map(([t,g]) => barRow(t, g.learned, g.total)).join('');
-  }
-  function renderWeek() {
-    const days = [];
-    const d = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const x = new Date(d); x.setDate(x.getDate() - i);
-      const key = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
-      days.push({ key, label: ['日','一','二','三','四','五','六'][x.getDay()], count: state.days[key] || 0 });
-    }
-    const max = Math.max(1, ...days.map(x => x.count));
-    $('#weekTotal').textContent = `${days.reduce((s,x) => s + x.count, 0)} 次`;
-    $('#weekChart').innerHTML = days.map(x => {
-      const h = Math.max(4, Math.round(x.count / max * 92));
-      return `<div class="week-col"><div class="week-num">${x.count || ''}</div><div class="week-bar" style="height:${h}px"></div><div class="week-day">${x.label}</div></div>`;
-    }).join('');
+  function renderLibrary(){
+    const list=items(subject,module).filter(x=>currentCat==='all'||x.category===currentCat);
+    const q=($('#searchInput').value||'').trim().toLowerCase();
+    const filtered=q?list.filter(x=>((x.term||x.title||'')+(x.answer||'')+(x.full?JSON.stringify(x.full):'')).toLowerCase().includes(q)):list;
+    $('#libKicker').textContent=`${subject} · ${module==='term'?'名词解释':'大题'}`;
+    $('#libTitle').textContent=module==='term'?'名词解释题库':'大题题库';
+    $('#libraryCount').textContent=`${filtered.length} 条`;
+    $('#libraryList').innerHTML=filtered.map(x=>{
+      const p=progressOf(x.id), dot=p?.status==='mastered'?'mastered':p?'learning':'';
+      return `<button class="term-item" data-lib-id="${x.id}"><span class="status-dot ${dot}"></span><span class="term-left"><span class="term-name">${escapeHtml(x.term||x.title)}</span><span class="term-sub">${escapeHtml(x.category)}${x.type?` · ${x.type} ${x.score}分`:''}</span></span><span style="color:var(--muted)">›</span></button>`;
+    }).join('') || '<div class="empty-list">没有匹配内容。</div>';
   }
 
-  function renderSettings() {
-    $('#dailySelect').value = String(state.settings.daily);
-    $('#orderSelect').value = state.settings.order;
-    $('#darkToggle').checked = !!state.settings.dark;
+  function openModal(id){
+    const item=byId(subject,module,id); if(!item) return;
+    $('#modalChapter').textContent=item.category;
+    $('#modalTerm').textContent=item.term||item.title;
+    $('#modalAnswer').innerHTML=answerHtml(item);
+    modalId=id;
+    $('#modalStar').textContent=state.favorites.includes(id)?'★ 已收藏':'☆ 收藏';
+    $('#modal').classList.remove('hidden'); document.body.style.overflow='hidden';
+  }
+  function closeModal(){ $('#modal').classList.add('hidden'); document.body.style.overflow=''; modalId=null; }
+
+  function beginEdit(el,id){ editId=id; el.contentEditable='true'; el.classList.add('editing'); el.focus(); toast('直接修改，点空白处保存'); }
+  function endEdit(el){ if(el.contentEditable!=='true') return; const text=el.textContent.trim(); if(editId&&text){ state.custom[editId]=text; save(); toast('答案已更新'); } el.contentEditable='false'; el.classList.remove('editing'); editId=null; }
+  function bindGestures(){
+    const box=$('#answerBox'), ans=$('#studyAnswer');
+    ans.addEventListener('pointerdown',()=>{ answerLongFired=false; clearTimeout(answerLongTimer); answerLongTimer=setTimeout(()=>{ if(currentItem){ answerLongFired=true; beginEdit(ans,currentItem.id); } },650); });
+    ['pointerup','pointerleave','pointercancel'].forEach(e=>ans.addEventListener(e,()=>clearTimeout(answerLongTimer)));
+    ans.addEventListener('blur',()=>endEdit(ans));
+    box.addEventListener('click',e=>{ if(answerLongFired){answerLongFired=false;return;} if(e.target.closest('#studyAnswer')&&ans.contentEditable==='true')return; if(!box.classList.contains('hidden')) hide(); });
+    const list=$('#summaryList');
+    list.addEventListener('click',e=>{ if(answerLongFired){answerLongFired=false;return;} const a=e.target.closest('.summary-answer'); if(a&&a.contentEditable!=='true') a.classList.toggle('covered'); });
+    list.addEventListener('pointerdown',e=>{ const a=e.target.closest('.summary-answer'); if(!a)return; answerLongFired=false; clearTimeout(answerLongTimer); answerLongTimer=setTimeout(()=>{ answerLongFired=true; beginEdit(a,a.dataset.summaryId); },650); });
+    ['pointerup','pointerleave','pointercancel'].forEach(e=>list.addEventListener(e,()=>clearTimeout(answerLongTimer)));
+    list.addEventListener('focusout',e=>{ const a=e.target.closest('.summary-answer'); if(a) endEdit(a); });
   }
 
-  function exportData() {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${SUBJECT}大题进度-${todayKey()}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast('已导出');
-  }
-  function importData(file) {
-    const r = new FileReader();
-    r.onload = () => {
-      try {
-        const obj = JSON.parse(r.result);
-        state = {
-          ...defaultState(), ...obj,
-          progress: obj.progress || {},
-          drafts: obj.drafts || {},
-          days: obj.days || {},
-          settings: { ...defaultState().settings, ...(obj.settings || {}) }
-        };
-        save(); applyTheme(); renderHome(); renderSettings();
-        toast('导入成功');
-      } catch (e) { toast('导入失败：文件格式不对'); }
-    };
-    r.readAsText(file);
-  }
-  function resetAll() {
-    if (!confirm('确定清空全部训练进度吗？建议先导出备份。')) return;
-    state = defaultState(); queue = []; index = 0;
-    save(); applyTheme(); renderHome(); renderSettings(); toast('已清空');
-  }
-
-  function bind() {
-    $$('.tab').forEach(t => t.addEventListener('click', () => {
-      const n = t.dataset.goto;
-      if (n === 'train') startSession('due');
-      else showScreen(n);
+  function bind(){
+    $$('[data-subject]').forEach(b=>b.addEventListener('click',()=>openSubject(b.dataset.subject)));
+    $$('[data-module]').forEach(b=>b.addEventListener('click',()=>openModule(b.dataset.module)));
+    $('#backBtn').addEventListener('click',()=>{ if($('#screen-study').classList.contains('active')){ showScreen('dash'); renderDash(); } else if($('#screen-dash').classList.contains('active')){ openSubject(subject); } else showScreen('home'); });
+    $('#startBtn').addEventListener('click',startStudy);
+    $('#emptyHomeBtn').addEventListener('click',()=>{ showScreen('home'); });
+    $('#dashLibBtn').addEventListener('click',()=>{ renderLibrary(); showScreen('library'); });
+    $('#revealBtn').addEventListener('click',reveal);
+    $$('.rate').forEach(b=>b.addEventListener('click',()=>rate(b.dataset.rate)));
+    $('#summaryContinue').addEventListener('click',()=>{ const p=planOf(subject,module); if(p){ p.summary=null; p.retryActive=p.retry.length>0; save(); } renderStudy(); });
+    $('#starBtn').addEventListener('click',()=>{ if(!currentItem)return; const i=state.favorites.indexOf(currentItem.id); if(i>=0)state.favorites.splice(i,1); else state.favorites.push(currentItem.id); save(); renderStudy(); });
+    $('#themeBtn').addEventListener('click',()=>{ state.settings.dark=!state.settings.dark; save(); applyTheme(); });
+    $('#themeRow').addEventListener('click',()=>{ state.settings.dark=!state.settings.dark; save(); applyTheme(); });
+    $('#resetProgress').addEventListener('click',()=>{ if(confirm('清空全部学习进度？不可恢复')){ state.progress={}; state.plans={}; save(); toast('进度已清空'); renderDash(); } });
+    $('#resetEdits').addEventListener('click',()=>{ state.custom={}; save(); toast('答案已恢复'); });
+    $$('.tab').forEach(t=>t.addEventListener('click',()=>{
+      const n=t.dataset.goto;
+      if(n==='home') showScreen('home');
+      else if(n==='library'){ if(!subject) subject='857'; renderLibrary(); showScreen('library'); }
+      else { applyTheme(); showScreen('settings'); }
     }));
-    $$('[data-goto]').forEach(el => el.addEventListener('click', () => {
-      const n = el.dataset.goto;
-      if (n === 'train') startSession('due');
-      else showScreen(n);
-    }));
-    $('#backBtn').addEventListener('click', () => showScreen('home'));
-    $('#startBtn').addEventListener('click', () => startSession('due'));
-    $('#quickS').addEventListener('click', () => startSession('S'));
-    $('#quickL').addEventListener('click', () => startSession('L'));
-    $('#revealBtn').addEventListener('click', reveal);
-    $$('.rate').forEach(b => b.addEventListener('click', () => rate(b.dataset.level)));
-    $('#prevBtn').addEventListener('click', () => {
-      if (index > 0) { index--; renderTrain(); } else toast('已经是第一题');
-    });
-    $('#skipBtn').addEventListener('click', () => {
-      if (!queue.length) return;
-      index++;
-      if (index >= queue.length) finishSession(); else renderTrain();
-    });
-    $('#outline').addEventListener('input', (e) => {
-      const item = currentItem();
-      if (item) { state.drafts[item.id] = e.target.value; save(); }
-    });
-    $('#timerBtn').addEventListener('click', toggleTimer);
-    $('#searchInput').addEventListener('input', renderLibrary);
-    $('#filterChips').addEventListener('click', (e) => {
-      const c = e.target.closest('.filter-chip');
-      if (!c) return;
-      filter = c.dataset.filter;
-      $$('.filter-chip', $('#filterChips')).forEach(x => x.classList.toggle('active', x === c));
-      renderLibrary();
-    });
-    $('#questionList').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-id]');
-      if (!b) return;
-      const item = DATA.find(x => x.id === Number(b.dataset.id));
-      if (item) openModal(item);
-    });
-    $('#modal').addEventListener('click', (e) => {
-      if (e.target.closest('[data-close="modal"]')) closeModal();
-    });
-    $('#mStart').addEventListener('click', () => {
-      if (!currentModal) return;
-      const item = currentModal;
-      closeModal();
-      queue = [item]; index = 0;
-      sessionMode = '单题训练';
-      showScreen('train');
-      $('#trainArea').classList.remove('hidden');
-      $('#trainEmpty').classList.add('hidden');
-      renderTrain();
-    });
-    $('#dailySelect').addEventListener('change', (e) => { state.settings.daily = Number(e.target.value); save(); renderHome(); });
-    $('#orderSelect').addEventListener('change', (e) => { state.settings.order = e.target.value; save(); });
-    $('#darkToggle').addEventListener('change', (e) => { state.settings.dark = e.target.checked; save(); applyTheme(); });
-    $('#themeBtn').addEventListener('click', () => { state.settings.dark = !state.settings.dark; save(); applyTheme(); });
-    $('#exportBtn').addEventListener('click', exportData);
-    $('#importFile').addEventListener('change', (e) => {
-      const f = e.target.files?.[0]; if (f) importData(f); e.target.value = '';
-    });
-    $('#resetBtn').addEventListener('click', resetAll);
-    document.addEventListener('keydown', (e) => {
-      if (e.target.matches('input, textarea, select')) return;
-      if ($('#screen-train').classList.contains('active')) {
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if ($('#skeleton').classList.contains('hidden')) reveal(); }
-        if (e.key === '1') rate(0);
-        if (e.key === '2') rate(1);
-        if (e.key === '3') rate(2);
-        if (e.key === '4') rate(3);
-      }
-    });
+    $('#searchInput').addEventListener('input',renderLibrary);
+    $('#catChips').addEventListener('click',e=>{ const c=e.target.closest('.chip'); if(!c)return; currentCat=c.dataset.cat; $$('.chip',$('#catChips')).forEach(x=>x.classList.toggle('active',x===c)); renderLibrary(); });
+    $('#libraryList').addEventListener('click',e=>{ const b=e.target.closest('[data-lib-id]'); if(b) openModal(b.dataset.libId); });
+    $('#modal').addEventListener('click',e=>{ if(e.target.closest('[data-close="modal"]')) closeModal(); });
+    $('#modalStar').addEventListener('click',()=>{ if(!modalId)return; const i=state.favorites.indexOf(modalId); if(i>=0)state.favorites.splice(i,1); else state.favorites.push(modalId); save(); $('#modalStar').textContent=state.favorites.includes(modalId)?'★ 已收藏':'☆ 收藏'; });
+    bindGestures();
   }
 
-  function init() {
-    bind(); applyTheme(); renderHome();
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-    }
-    const p = new URLSearchParams(location.search);
-    if (p.get('train') === '1') startSession('due');
-    if (p.get('type') === 'S' || p.get('type') === 'L') startSession(p.get('type'));
-    if (p.get('reveal') === '1') setTimeout(reveal, 30);
-    if (p.get('q')) {
-      const item = DATA.find(x => x.title === p.get('q'));
-      if (item) openModal(item);
-    }
-  }
-  init();
+  applyTheme(); renderHome(); bind();
 })();
