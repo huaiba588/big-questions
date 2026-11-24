@@ -52,10 +52,14 @@
           </div>
         </div>
 
-        <button class="primary-btn wide" id="startBtn">开始今日训练 →</button>
+        <button class="primary-btn wide" id="startBtn">开始训练（重点优先） →</button>
         <div class="quick-row">
           <button class="quick-btn" id="quickS">简答专项</button>
           <button class="quick-btn" id="quickL">论述专项</button>
+        </div>
+        <div class="cat-row">
+          <button class="cat-btn key" data-start-cat="重点"><b>重点题库</b><span id="keyCount">23</span></button>
+          <button class="cat-btn know" data-start-cat="了解"><b>了解题库</b><span id="knowCount">23</span></button>
         </div>
         <div class="hero-note">先自己写 3—5 个词，再点“显示骨架”</div>
 
@@ -143,6 +147,11 @@
           <button class="filter-chip" data-filter="论述">论述</button>
           <button class="filter-chip" data-filter="new">未练</button>
           <button class="filter-chip" data-filter="mastered">已掌握</button>
+        </div>
+        <div class="chips" id="catChips">
+          <button class="filter-chip active" data-cat="all">全部题库</button>
+          <button class="filter-chip" data-cat="重点">重点</button>
+          <button class="filter-chip" data-cat="了解">了解</button>
         </div>
         <div class="q-list" id="questionList"></div>
       </section>

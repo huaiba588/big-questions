@@ -56,6 +56,7 @@
   let index = 0;
   let sessionMode = '今日训练';
   let filter = 'all';
+  let category = 'all';
   let currentModal = null;
 
   function save() {
@@ -141,6 +142,8 @@
     const d = new Date();
     $('#todayLabel').textContent = `${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]} · 简答/论述`;
     $('#totalLabel').textContent = `${learnedCount()} / ${activeData().length}`;
+    $('#keyCount').textContent = activeData().filter(x => x.category === '重点').length;
+    $('#knowCount').textContent = activeData().filter(x => x.category === '了解').length;
     renderTopics($('#topicList'));
   }
 
@@ -164,22 +167,34 @@
   }
 
   function todayQueue() {
-    const due = dueList();
-    const fresh = newList();
+    const inCat = x => category === 'all' || x.category === category;
+    const due = dueList().filter(inCat);
+    const fresh = newList().filter(inCat);
     let list = [];
     if (state.settings.order === 'sequence') {
       list = [...due, ...fresh].sort((a, b) => a.id - b.id);
     } else {
       list = [...shuffle(due), ...shuffle(fresh)];
     }
+    if (category === 'all') list.sort((a, b) => (a.category === '重点' ? 0 : 1) - (b.category === '重点' ? 0 : 1));
     return list.slice(0, state.settings.daily);
   }
 
   function startSession(mode) {
-    sessionMode = mode === 'S' ? '简答专项' : mode === 'L' ? '论述专项' : mode === 'single' ? '单题训练' : '今日训练';
+    if (mode === 'key') { category = '重点'; mode = 'due'; sessionMode = '重点题库'; }
+    else if (mode === 'know') { category = '了解'; mode = 'due'; sessionMode = '了解题库'; }
+    else if (mode === 'all') { category = 'all'; mode = 'due'; sessionMode = '全部题库'; }
+    else sessionMode = mode === 'S' ? '简答专项' : mode === 'L' ? '论述专项' : mode === 'single' ? '单题训练' : '今日训练';
     if (mode === 'S' || mode === 'L') {
       const type = mode === 'S' ? '简答' : '论述';
-      queue = shuffle(activeData().filter(x => x.type === type && !isMastered(x.id))).slice(0, 10);
+      const pool = activeData().filter(x => x.type === type && !isMastered(x.id) && (category === 'all' || x.category === category));
+      if (category === 'all') {
+        const key = pool.filter(x => x.category === '重点');
+        const know = pool.filter(x => x.category === '了解');
+        queue = [...shuffle(key), ...shuffle(know)].slice(0, 10);
+      } else {
+        queue = shuffle(pool).slice(0, 10);
+      }
     } else if (mode !== 'single') {
       queue = todayQueue();
     }
@@ -323,6 +338,7 @@
     if (filter === '简答' || filter === '论述') list = list.filter(x => x.type === filter);
     if (filter === 'new') list = list.filter(x => !isPracticed(x.id));
     if (filter === 'mastered') list = list.filter(x => isMastered(x.id));
+    if (category !== 'all') list = list.filter(x => x.category === category);
     if (q) list = list.filter(x => (x.title + x.breakq + x.keys + x.case + x.pit).toLowerCase().includes(q));
     $('#libraryCount').textContent = `${list.length} 题`;
     if (!list.length) {
@@ -494,9 +510,10 @@
       else showScreen(n);
     }));
     $('#backBtn').addEventListener('click', () => showScreen('home'));
-    $('#startBtn').addEventListener('click', () => startSession('due'));
-    $('#quickS').addEventListener('click', () => startSession('S'));
-    $('#quickL').addEventListener('click', () => startSession('L'));
+    $('#startBtn').addEventListener('click', () => startSession('all'));
+    $('#quickS').addEventListener('click', () => { category = 'all'; startSession('S'); });
+    $('#quickL').addEventListener('click', () => { category = 'all'; startSession('L'); });
+    $$('[data-start-cat]').forEach(b => b.addEventListener('click', () => startSession(b.dataset.startCat)));
     $('#revealBtn').addEventListener('click', reveal);
     $('#fullBtn').addEventListener('click', toggleFull);
     $$('.rate').forEach(b => b.addEventListener('click', () => rate(b.dataset.level)));
@@ -519,6 +536,13 @@
       if (!c) return;
       filter = c.dataset.filter;
       $$('.filter-chip', $('#filterChips')).forEach(x => x.classList.toggle('active', x === c));
+      renderLibrary();
+    });
+    $('#catChips').addEventListener('click', (e) => {
+      const c = e.target.closest('.filter-chip');
+      if (!c) return;
+      category = c.dataset.cat;
+      $$('.filter-chip', $('#catChips')).forEach(x => x.classList.toggle('active', x === c));
       renderLibrary();
     });
     $('#questionList').addEventListener('click', (e) => {
