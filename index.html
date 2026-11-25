@@ -11,7 +11,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-180.png">
-  <link rel="stylesheet" href="./styles.css?v=4">
+  <link rel="stylesheet" href="./styles.css?v=5">
 </head>
 <body>
   <div id="app">
@@ -78,7 +78,10 @@
             <div class="today-row"><span>已完成</span><b id="dashPassed">0</b></div>
           </div>
         </div>
-        <button class="primary-btn wide" id="startBtn">开始今日学习 →</button>
+        <div class="start-actions">
+          <button class="primary-btn" id="startBtn">开始今日学习 →</button>
+          <button class="secondary-btn" id="reviewBtn">复习</button>
+        </div>
         <div class="hero-note" id="dashNote">先复习到期内容，再学新内容</div>
         <div class="section-head"><h2>题库概览</h2><span class="muted" id="dashSummary"></span></div>
         <div class="stat-grid">
@@ -169,6 +172,20 @@
         <p class="summary-tip">点答案显示，再点遮住；长按答案可编辑。红色词会在后面滚动回插，不挡新词。</p>
         <div class="summary-list" id="summaryList"></div>
         <button class="primary-btn wide" id="summaryContinue">继续下一组</button>
+      </div>
+    </div>
+
+    <div class="modal hidden" id="startChoice">
+      <div class="modal-backdrop" data-close="startChoice"></div>
+      <div class="modal-card choice-card">
+        <div class="summary-kicker">开始之前</div>
+        <h2 id="choiceTitle">先复习，还是先学新词？</h2>
+        <p class="choice-due" id="choiceDue"></p>
+        <div class="choice-actions">
+          <button class="primary-btn" id="choiceReview">先复习</button>
+          <button class="secondary-btn" id="choiceNew">直接学新词</button>
+        </div>
+        <button class="text-btn choice-cancel" id="choiceCancel">取消</button>
       </div>
     </div>
 

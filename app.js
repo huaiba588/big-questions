@@ -172,9 +172,31 @@
     return (item.full||[]).map(s=>`${s.h}：${s.t}`).join('\n') + (item.pit?`\n易漏：${item.pit}`:'');
   }
 
-  function startStudy(){
+  function openStartChoice(){
+    const due=dueTotal(subject,module);
+    if(!due){ startStudy('default'); return; }
+    $('#choiceTitle').textContent=module==='term'?'先复习，还是先学新词？':'先复习，还是先学新题？';
+    $('#choiceDue').textContent=`当前有 ${due} 个到期内容。先复习会从到期内容开始；直接学新内容会暂时跳过今天剩余的复习。`;
+    $('#startChoice').classList.remove('hidden');
+  }
+  function closeStartChoice(){ $('#startChoice').classList.add('hidden'); }
+
+  function startStudy(mode='default'){
     const plan=ensurePlan();
+    if(mode==='review'){
+      plan.summary=null;
+      if(plan.reviewIndex>=plan.reviewIds.length) plan.reviewIndex=0;
+      save();
+    } else if(mode==='new'){
+      plan.summary=null;
+      plan.reviewIndex=plan.reviewIds.length;
+      save();
+    }
+    closeStartChoice();
     showScreen('study');
+    $('#summary').classList.add('hidden');
+    $('#studyEmpty').classList.add('hidden');
+    $('#studyArea').classList.remove('hidden');
     if(plan.summary){ renderSummary(); return; }
     if(!getCurrent()){ finish(); return; }
     renderStudy();
@@ -184,6 +206,8 @@
     const plan=planOf(subject,module);
     if(plan?.summary){ renderSummary(); return; }
     $('#summary').classList.add('hidden');
+    $('#studyArea').classList.remove('hidden');
+    $('#studyEmpty').classList.add('hidden');
     const cur=getCurrent();
     if(!cur){ finish(); return; }
     currentItem=cur.item; currentKind=cur.kind;
@@ -357,7 +381,12 @@
     $$('[data-subject]').forEach(b=>b.addEventListener('click',()=>openSubject(b.dataset.subject)));
     $$('[data-module]').forEach(b=>b.addEventListener('click',()=>openModule(b.dataset.module)));
     $('#backBtn').addEventListener('click',()=>{ if($('#screen-study').classList.contains('active')){ showScreen('dash'); renderDash(); } else if($('#screen-dash').classList.contains('active')){ openSubject(subject); } else showScreen('home'); });
-    $('#startBtn').addEventListener('click',startStudy);
+    $('#startBtn').addEventListener('click',openStartChoice);
+    $('#reviewBtn').addEventListener('click',()=>{ if(dueTotal(subject,module)) startStudy('review'); else toast('当前没有到期复习'); });
+    $('#choiceReview').addEventListener('click',()=>startStudy('review'));
+    $('#choiceNew').addEventListener('click',()=>startStudy('new'));
+    $('#choiceCancel').addEventListener('click',closeStartChoice);
+    $('#startChoice').addEventListener('click',e=>{ if(e.target.closest('[data-close="startChoice"]')) closeStartChoice(); });
     $('#emptyHomeBtn').addEventListener('click',()=>{ showScreen('home'); });
     $('#dashLibBtn').addEventListener('click',()=>{ renderLibrary(); showScreen('library'); });
     $('#revealBtn').addEventListener('click',reveal);
