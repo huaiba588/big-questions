@@ -377,6 +377,50 @@
     Object.entries(map).forEach(([id,key])=>{ const el=$('#'+id); if(el) el.value=state.settings[key]; });
   }
 
+  function downloadJSON(name,obj){
+    const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+  }
+
+  function exportBank(subject){
+    const src=DATA[subject];
+    const out={
+      subject,
+      exportedAt:new Date().toISOString(),
+      terms:src.terms.map(x=>({...x,answer:state.custom[x.id]||x.answer,isEdited:!!state.custom[x.id]})),
+      bigs:src.bigs.map(x=>({...x,custom:state.custom[x.id]||'',isEdited:!!state.custom[x.id]}))
+    };
+    downloadJSON(`${subject}_题库_含修改_${todayKey()}.json`,out);
+    toast(`已导出 ${subject} 题库`);
+  }
+
+  function exportLocal(){
+    downloadJSON(`本地数据_${todayKey()}.json`,{app:'344857',exportedAt:new Date().toISOString(),state});
+    toast('已导出本地数据');
+  }
+
+  function importLocalFile(file){
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const obj=JSON.parse(String(reader.result||''));
+        const st=obj.state||obj;
+        if(!st||typeof st!=='object'||!st.progress) throw new Error('bad');
+        state=st; save(); toast('导入成功，正在刷新');
+        setTimeout(()=>location.reload(),500);
+      }catch(e){ toast('导入失败：文件格式不对'); }
+    };
+    reader.readAsText(file);
+  }
+
+  function exportEdits(){
+    downloadJSON(`我的题库修改_${todayKey()}.json`,{exportedAt:new Date().toISOString(),custom:state.custom});
+    toast('已导出修改');
+  }
+
   function bind(){
     $$('[data-subject]').forEach(b=>b.addEventListener('click',()=>openSubject(b.dataset.subject)));
     $$('[data-module]').forEach(b=>b.addEventListener('click',()=>openModule(b.dataset.module)));
@@ -395,6 +439,12 @@
     $('#starBtn').addEventListener('click',()=>{ if(!currentItem)return; const i=state.favorites.indexOf(currentItem.id); if(i>=0)state.favorites.splice(i,1); else state.favorites.push(currentItem.id); save(); renderStudy(); });
     $('#themeBtn').addEventListener('click',()=>{ state.settings.dark=!state.settings.dark; save(); applyTheme(); });
     $('#themeRow').addEventListener('click',()=>{ state.settings.dark=!state.settings.dark; save(); applyTheme(); });
+    $('#export857').addEventListener('click',()=>exportBank('857'));
+    $('#export344').addEventListener('click',()=>exportBank('344'));
+    $('#exportEdits').addEventListener('click',exportEdits);
+    $('#exportLocal').addEventListener('click',exportLocal);
+    $('#importLocal').addEventListener('click',()=>$('#importFile').click());
+    $('#importFile').addEventListener('change',e=>{ importLocalFile(e.target.files[0]); e.target.value=''; });
     const dailyMap={setDailyTerm:'dailyTerm',setDailyBrief:'dailyBrief',setDailyEssay:'dailyEssay',setDailyComp:'dailyComp'};
     Object.entries(dailyMap).forEach(([id,key])=>{
       $('#'+id).addEventListener('change',(e)=>{

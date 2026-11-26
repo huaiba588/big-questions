@@ -11,7 +11,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-180.png">
-  <link rel="stylesheet" href="./styles.css?v=6">
+  <link rel="stylesheet" href="./styles.css?v=8">
 </head>
 <body>
   <div id="app">
@@ -151,6 +151,16 @@
           <label class="settings-row"><span>综合题 / 天</span><input id="setDailyComp" class="num-input" type="number" min="0" max="10" inputmode="numeric"></label>
         </div>
         <div class="hero-note">每天数量修改后，从下一次新计划开始生效；今天已开始的不变。</div>
+        <div class="settings-card">
+          <button class="settings-row" id="exportLocal"><span>导出本地数据（进度+我的修改）</span><b>JSON</b></button>
+          <button class="settings-row" id="importLocal"><span>导入本地数据</span><b>JSON</b></button>
+          <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+        </div>
+        <div class="settings-card">
+          <button class="settings-row" id="export857"><span>导出 857 题库（含我的修改）</span><b>JSON</b></button>
+          <button class="settings-row" id="export344"><span>导出 344 题库（含我的修改）</span><b>JSON</b></button>
+          <button class="settings-row" id="exportEdits"><span>只导出我的修改</span><b>JSON</b></button>
+        </div>
         <div class="settings-card">
           <button class="settings-row" id="themeRow"><span>深色模式</span><b id="themeState">关</b></button>
           <button class="settings-row" id="resetProgress"><span>重置全部进度</span><b>清空</b></button>
